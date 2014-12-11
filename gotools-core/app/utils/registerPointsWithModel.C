@@ -828,7 +828,9 @@ int main( int argc, char* argv[] )
   cout << 100 << " " << time_diff << endl;
 #endif
 
-  of_status.clear();
-  of_status << 100;
+  // clear() does not work, we fetch the file once again.
+//  of_status.clear();
+  std::ofstream of_status_final(of_status_filename);
+  of_status_final << 100;
 
 }
