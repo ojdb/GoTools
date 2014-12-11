@@ -133,8 +133,8 @@ LRSplineSurface::LRSplineSurface(double knot_tol, bool rational,
 {
   for (size_t ki=0; ki<b_splines.size(); ++ki)
   {
-    // bsplines_[generate_key(*b_splines[ki], mesh_)] = b_splines[ki];
     LRSplineSurface::BSKey bs_key = generate_key(*b_splines[ki], mesh_);
+    b_splines[ki]->setMesh(&mesh_);
     bsplines_.insert(std::pair<LRSplineSurface::BSKey, unique_ptr<LRBSpline2D> >(bs_key, std::move(b_splines[ki])));
   }
 
@@ -496,10 +496,11 @@ void LRSplineSurface::refine(Direction2D d, double fixed_val, double start,
   // affected remain valid after removing and adding elements? If not, this
   // combination of objects and pointers will not work.
     double domain[4];  // Covers elements affected by the split
+    int next_ix = (fixed_ix == mesh_.numDistinctKnots(d) -1) ? fixed_ix : fixed_ix + 1;
     domain[0] = mesh_.kval(XFIXED, (d == XFIXED) ? prev_ix : start_ix);
-    domain[1] = mesh_.kval(XFIXED, (d == XFIXED) ? fixed_ix+1 : end_ix);
+    domain[1] = mesh_.kval(XFIXED, (d == XFIXED) ? next_ix : end_ix);
     domain[2] = mesh_.kval(YFIXED, (d == YFIXED) ? prev_ix : start_ix);
-    domain[3] = mesh_.kval(YFIXED, (d == YFIXED) ? fixed_ix+1 : end_ix);
+    domain[3] = mesh_.kval(YFIXED, (d == YFIXED) ? next_ix : end_ix);
     LRSplineUtils::iteratively_split2(bsplines_affected, mesh_, bsplines_, domain); 
 
 #if 0//ndef NDEBUG
@@ -693,16 +694,7 @@ void LRSplineSurface::to3D()
   if (degree(XFIXED) == 0 || degree(YFIXED) == 0) 
     THROW("Cannot convert a 0-degree spline to 3D.");
 
-  for (auto b = bsplines_.begin(); b != bsplines_.end(); ++b) {
-    const double x = LRSplineUtils::compute_greville(b->second->kvec(XFIXED), 
-						     mesh().knotsBegin(XFIXED));
-    const double y = LRSplineUtils::compute_greville(b->second->kvec(YFIXED), 
-						      mesh().knotsBegin(YFIXED));
-    const double z_gamma = b->second->coefTimesGamma()[0];
-    const double gamma = b->second->gamma();
-    b->second->coefTimesGamma() = Point(x*gamma, y*gamma, z_gamma);
-    //wcout << b.second.coefTimesGamma() << std::endl;
-  }
+  LRSplineUtils::insertParameterFunctions(this);
 }
 
 
@@ -779,6 +771,22 @@ bool LRSplineSurface::rational() const
 
 
 //==============================================================================
+void LRSplineSurface::translate(const Point& vec)
+//==============================================================================
+{
+    assert(vec.size() == dimension());
+
+    // We run through all coefs and translate the coef by the given vec.
+    for (auto b = bsplines_.begin(); b != bsplines_.end(); ++b) {
+	const Point coef = b->second->Coef();
+	Point trans_coef = coef + vec;
+	const double gamma = b->second->gamma();	
+	b->second->setCoefAndGamma(trans_coef, gamma);
+    }
+}
+
+
+//==============================================================================
 void LRSplineSurface::expandToFullTensorProduct()
 //==============================================================================
 {
@@ -837,6 +845,22 @@ Point LRSplineSurface::operator()(double u, double v, int u_deriv, int v_deriv) 
       return ret_pt;
     }
 #endif
+
+  if (u < paramMin(XFIXED)) {
+      MESSAGE("u was outside domain: " << u << " < " << paramMin(XFIXED) << ", moved inside.");
+      u = paramMin(XFIXED);
+  } else if (u > paramMax(XFIXED)) {
+      MESSAGE("u was outside domain: " << u << " > " << paramMax(XFIXED) << ", moved inside.");
+      u = paramMax(XFIXED);
+  }
+
+  if (v < paramMin(YFIXED)) {
+      MESSAGE("v was outside domain: " << v << " < " << paramMin(YFIXED) << ", moved inside.");
+      v = paramMin(YFIXED);
+  } else if (v > paramMax(YFIXED)) {
+      MESSAGE("v was outside domain: " << v << " > " << paramMax(YFIXED) << ", moved inside.");
+      v = paramMax(YFIXED);
+  }
 
   // const bool u_on_end = (u == mesh_.maxParam(XFIXED));
   // const bool v_on_end = (v == mesh_.maxParam(YFIXED));
@@ -1327,7 +1351,7 @@ double LRSplineSurface::endparam_v() const
      
      // Perform refinement
      // @@sbr201301 Remove when stable.
-     bool multi_refine = false;
+     bool multi_refine = true;//false;
      if (multi_refine)
        {
 	 sf->refine(refs, true);
@@ -1335,13 +1359,16 @@ double LRSplineSurface::endparam_v() const
      else
        {
 #ifndef NDEBUG
-	 puts("Debugging, remove when code is stable!");
-	 std::swap(refs[0], refs[1]);
+//	 puts("Debugging, remove when code is stable!");
+//	 std::swap(refs[0], refs[1]);
 #endif
 	 for (size_t ki = 0; ki < refs.size(); ++ki)
 	   {
+#ifndef NDEBUG
 	     MESSAGE("ki = " << ki << "\n");
-	     sf->refine(refs[ki], true); // Second argument is 'true', which means that the mult is set to deg+1.
+#endif
+	     sf->refine(refs[ki], true); // Second argument is 'true', which means that the mult is set
+	                                 // to refs[ki].mult = deg+1.
 	   }
        }
 
@@ -1377,7 +1404,6 @@ double LRSplineSurface::endparam_v() const
 	 b_splines2[ki]->setMesh(sub_mesh.get());
 	 b_splines2[ki]->subtractKnotIdx(iu1, iv1);
        }
-     
 
      // Create sub surface
      surf = new LRSplineSurface(knot_tol_, rational_, *sub_mesh, b_splines2);
