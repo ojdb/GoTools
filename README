@@ -21,6 +21,11 @@ Requirements:
 * Linux: Tested with gcc version 4.7.3
 * Windows: Tested with Visual Studio 2010. Should work on VS 2008.
 
+Right after cloning, run:
+$ git submodule update --init
+
+The '--init' option will initialize the submodules (SISL and TTL).
+
 A few comments on the current distribution:
 
 (1) You can generate doxygen information by typing 'doxygen' in the base
