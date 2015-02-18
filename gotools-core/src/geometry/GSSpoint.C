@@ -71,10 +71,17 @@ void SplineSurface::point(Point& result, double upar, double vpar) const
     const int unum = numCoefs_u();
     int kdim = rational_ ? dim_ + 1 : dim_;
 
+#ifdef _OPENMP
+    ScratchVect<double, 10> Bu(uorder);
+    ScratchVect<double, 10> Bv(vorder);
+    ScratchVect<double, 4> tempPt(kdim);
+    ScratchVect<double, 4> tempResult(kdim);
+#else
     static ScratchVect<double, 10> Bu(uorder);
     static ScratchVect<double, 10> Bv(vorder);
     static ScratchVect<double, 4> tempPt(kdim);
     static ScratchVect<double, 4> tempResult(kdim);
+#endif
 
     Bu.resize(uorder);
     Bv.resize(vorder);
@@ -581,6 +588,18 @@ void SplineSurface::pointsGrid(int m1, int m2, int derivs,
 }
 #endif
 
+
+  void SplineSurface::evalGrid(int num_u, int num_v, 
+		double umin, double umax, 
+		double vmin, double vmax,
+		std::vector<double>& points,
+		double nodata_val) const
+  {
+    vector<double> param_u;
+    vector<double> param_v;
+    gridEvaluator(num_u, num_v, points, param_u, param_v,
+		  umin, umax, vmin, vmax);
+  }
 
 void SplineSurface::gridEvaluator(int num_u, int num_v,
 				  std::vector<double>& points,
