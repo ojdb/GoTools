@@ -113,6 +113,9 @@ public:
   // end   - the one-past-end index of the last meshrectangle of the consecutive set
   int nu(Direction2D d, int ix, int start, int end) const;
 
+  // Similar to the 'nu'-operator but returns the highest multiplicity rather than the lowest
+  int mu(Direction2D d, int ix, int start, int end) const;
+
   // Get the number of distinct knot valuess in a given direction (rows: YFIXED, columns: XFIXED).
   // Note that this is the number of _distinct_ knots, so multiplicities are not taken into
   // account.

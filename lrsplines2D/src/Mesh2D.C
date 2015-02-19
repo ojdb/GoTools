@@ -176,6 +176,23 @@ int Mesh2D::nu(Direction2D d, int ix, int start, int end) const
 }
 
 // =============================================================================
+int Mesh2D::mu(Direction2D d, int ix, int start, int end) const
+// =============================================================================
+{
+  if (end >= numDistinctKnots(flip(d))) return 0; // proposed meshrectangle surpasses grid
+  const auto& mr = select_meshvec_(d, ix);
+  if (!(end > start)) return 0; // we can now safely assume that end > start
+
+  int result = mr[0].mult;
+  for (auto i = mr.begin(); i != mr.end(); ++i) 
+    if      (i->ix <= start) result = i->mult;
+    else if (i->ix >= end)   break; // finished
+    else                     result = std::max(result, i->mult);
+  
+  return result;
+}
+
+// =============================================================================
 int Mesh2D::extent(Direction2D d, int ix, int start, int mult) const
 // =============================================================================
 {
