@@ -98,7 +98,7 @@ void DataHandlerVolAndLR::create(shared_ptr<GeomObject> obj,
 	{
 	    LRSplineSurface& lr_sf
 		= dynamic_cast<LRSplineSurface&>(*obj);
-#if 1
+#if 0
 	    MESSAGE("Setting parameter domain to the unit square!");
 	    lr_sf.setParameterDomain(0.0, 1.0, 0.0, 1.0);
 #endif
@@ -106,7 +106,7 @@ void DataHandlerVolAndLR::create(shared_ptr<GeomObject> obj,
 	    lr_sf.to3D();
 	}
 
-#if 1
+#if 0
 	{
 	    LRSplineSurface& lr_sf
 		= dynamic_cast<LRSplineSurface&>(*obj);
@@ -151,6 +151,18 @@ void DataHandlerVolAndLR::create(shared_ptr<GeomObject> obj,
 	break;
 
       }
+    case Class_BoundedSurface:
+    {
+	BoundedSurface& sf
+	  = dynamic_cast<BoundedSurface&>(*obj);
+	shared_ptr<ParamSurface> under_sf = sf.underlyingSurface();
+	if (under_sf->instanceType() == Class_LRSplineSurface)
+	{
+	    MESSAGE("Lifting underlying lrspline_sf from 1D to 3D.");
+	    shared_ptr<LRSplineSurface> lr_sf = dynamic_pointer_cast<LRSplineSurface>(under_sf);
+	    lr_sf->to3D();
+	}
+    }
     default:
 	DefaultDataHandler::create(obj, col, id);
     }
