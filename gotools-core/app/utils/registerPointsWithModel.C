@@ -473,6 +473,42 @@ void write_transformation_signed_dists(vector<float>& signed_dists,
 }
 
 
+// We write to the ply file format.
+void write_transformed_points_signed_dists(const vector<float>& input_points,
+					   const vector<float>& signed_dists,
+					   const transformation_type& transformation,
+					   std::ofstream& fileout)
+{
+    const int num_pts = signed_dists.size();
+    fileout << "ply\n";
+    fileout << "format ascii 1.0\n";
+    fileout << "element vertex " << num_pts << "\n";
+    fileout << "property float x\n";
+    fileout << "property float y\n";
+    fileout << "property float z\n";
+    fileout << "property float signed_distance\n";
+    fileout << "end_header\n";
+
+    vector<vector<double> > rotation = transformation.first;
+    Point translation = transformation.second;
+    const int dim = 3;
+    for (int i = 0; i < signed_dists.size(); ++i)
+    {
+	vector<double> transf_pt(translation.begin(), translation.end());
+	for (int j = 0; j < dim; ++j)
+      	{
+	    for (int k = 0; k < 3; ++k)
+	    {
+		transf_pt[j] += rotation[j][k] * input_points[i*dim + k];
+	    }
+	}
+      // 	}
+//	fileout << sqrt(sum2) << endl;
+	fileout << transf_pt[0] << " " << transf_pt[1] << " " << transf_pt[2] << " " << signed_dists[i] << "\n";
+    }
+}
+
+
 void dropTransformation(const transformation_type& transformation, string s)
 {
   // cout << "Dropping transformation:" << endl;
@@ -632,16 +668,18 @@ int main( int argc, char* argv[] )
 
   if (argc != 6)
     {
-//      cout << "Usage:  " << argv[0] << " surfaceFile pointFile use_id_reg [run_reg? default=1]" << endl;
       cout << "Usage:  " << argv[0] << " <sf_model.g2> <points.txt> <initial_transf.txt> "
-	  "<final_transf_signed_dists.txt> <completion_status.txt>" << endl;
+	  "<transf_points_signed_dists.ply> <completion_status.txt>" << endl;
+//	  "<final_transf_signed_dists.txt> <completion_status.txt>" << endl;
+
       return 1;
     }
 
   ifstream in_surf(argv[1]);
   ifstream in_pts(argv[2]);
   ifstream in_transf(argv[3]);
-  ofstream of_result(argv[4]); // Line #1-#3: Rotation. #4: Translation. #5: # pts. #6: Signed dist 1st pt. #7: Signed dist 2nd ...
+  ofstream of_result(argv[4]); // Using the ply format.
+//  ofstream of_result(argv[4]); // Line #1-#3: Rotation. #4: Translation. #5: # pts. #6: Signed dist 1st pt. #7: Signed dist 2nd ...
   ofstream of_status(argv[5]); // An integer in the set {0, ..., 100}, an estimated percentage of how much work is done.
   string of_status_filename(argv[5]);
 
@@ -813,10 +851,33 @@ int main( int argc, char* argv[] )
 
   cout << "Writing to file." << endl;
   cout << "clp.size(): " << clp.size() << ", pts.size(): " << pts.size() << endl;
+#if 0
   write_transformation_signed_dists(signed_dists,
 				    currentTransformation,
 				    of_result);
-  
+#else
+
+#if 0
+  std::cout << "Altering the input transformation, setting it to the identity!" << std::endl;
+  transformation_type shuffleTransformation = currentTransformation;
+  shuffleTransformation.first[0][0] = 0.0;
+  shuffleTransformation.first[0][1] = 0.0;
+  shuffleTransformation.first[0][2] = 1.0;
+  shuffleTransformation.first[1][0] = 1.0;
+  shuffleTransformation.first[1][1] = 0.0;
+  shuffleTransformation.first[1][2] = 0.0;
+  shuffleTransformation.first[2][0] = 0.0;
+  shuffleTransformation.first[2][1] = 1.0;
+  shuffleTransformation.first[2][2] = 0.0;
+  std::cout << "Using shuffle transformation instead!!!" << std::endl;
+#endif
+
+  write_transformed_points_signed_dists(pts,
+					signed_dists,
+					currentTransformation,
+					of_result);
+#endif
+
 #if 1
   cout << "Printing timestamps file! Remove when done debugging!" << endl;
   reg_pts_status.printTimeStamps();
