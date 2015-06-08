@@ -691,9 +691,31 @@ int main( int argc, char* argv[] )
   while (!in_surf.eof())
     {
       header.read(in_surf);
-      shared_ptr<GeomObject> obj(Factory::createObject(header.classType()));
-      obj->read(in_surf);
-      surfaces.push_back(obj);
+      if (header.classType() == Class_PointCloud)
+      {   // The surface file may contain 1D point-cloud (tolerance and unit length prefix + name).
+	  const int pc_dim = (header.auxdataSize() == 3) ? header.auxdata(0) : 3;
+	  assert((pc_dim == 1) || (pc_dim == 3));
+	  if (pc_dim == 1)
+	  {
+	      Go::PointCloud<1> pc_1d;
+	      pc_1d.read(in_surf);
+	  }
+	  else if (pc_dim == 3)
+	  {
+	      Go::PointCloud3D pc_3d;
+	      pc_3d.read(in_surf);
+	  }
+	  else
+	  {
+	      MESSAGE("Did not expect this!");
+	  }
+      }
+      else
+      {
+	  shared_ptr<GeomObject> obj(Factory::createObject(header.classType()));
+	  obj->read(in_surf);
+	  surfaces.push_back(obj);
+      }
       Utils::eatwhite(in_surf);
     }
   in_surf.close();
@@ -782,20 +804,22 @@ int main( int argc, char* argv[] )
   shared_ptr<boxStructuring::BoundingBoxStructure> structure = preProcessClosestVectors(surfaces, 200.0);
   cout << "...done" << endl;
 
-#if 1
-  shared_ptr<StatusUpdater> reg_upd_dummy;
-  cout << "Computing closest dist for input matrix." << endl;
-  vector<float> signed_dists_init = closestSignedDistances(pts, structure,
-							   currentTransformation.first, currentTransformation.second,
-							   reg_upd_dummy.get());
-  // cout << "Writing to file." << endl;
-  // cout << "clp.size(): " << clp.size() << ", pts.size(): " << pts.size() << endl;
-  std::ofstream fileout_debug("tmp/input_mat_signed_dists.txt");
-  write_transformation_signed_dists(signed_dists_init,
-				    currentTransformation,
-				    fileout_debug);
-  cout << "Done writing input dists to file." << endl;
-#endif
+#ifndef NDEBUG
+  {
+      shared_ptr<StatusUpdater> reg_upd_dummy;
+      cout << "Computing closest dist for input matrix." << endl;
+      vector<float> signed_dists_init = closestSignedDistances(pts, structure,
+							       currentTransformation.first, currentTransformation.second,
+							       reg_upd_dummy.get());
+      // cout << "Writing to file." << endl;
+      // cout << "clp.size(): " << clp.size() << ", pts.size(): " << pts.size() << endl;
+      std::ofstream fileout_debug("tmp/input_mat_signed_dists.txt");
+      write_transformation_signed_dists(signed_dists_init,
+					currentTransformation,
+					fileout_debug);
+      cout << "Done writing input dists to file." << endl;
+  }
+#endif //NDEBUG
 
   for (int i = 0; i < reduce_factors.size(); ++i)
   {
