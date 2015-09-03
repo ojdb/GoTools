@@ -47,6 +47,81 @@
 
 #include <string>
 
+
+class PreprocessPointsStatus
+{ // The status starts at 0, ends at 99.
+public:
+
+    PreprocessPointsStatus(int num_sfs,
+			   const std::string& of_status_filename)
+	: num_sfs_(num_sfs), curr_sf_(0), of_status_filename_(of_status_filename)
+	{
+//	std::cout << "of_status_filename: " << of_status_filename << std::endl;
+	    updateStatusFile();
+	}
+
+    // Starting from 0 for the first surface in the set.
+    void setCurrSurface(int sf_id)
+	{
+	    curr_sf_ = sf_id;
+	    updateStatusFile();
+	}
+
+private:
+
+    int num_sfs_;
+    int curr_sf_;
+    const std::string& of_status_filename_;
+
+    // Assuming that the content was altered, writing to file.
+    void updateStatusFile()
+    {
+	std::ofstream fileout_status(of_status_filename_.c_str());
+	int curr_compl_perc = 100.0*curr_sf_/num_sfs_;
+	// std::cout << "curr_compl_perc: " << curr_compl_perc << std::endl;
+	// std::cout << "of_status_filename_: " << of_status_filename_ << std::endl;
+	if (curr_compl_perc > 99)
+	{
+	    curr_compl_perc = 99;
+	}
+
+	bool use_html_formatting = true;
+	if (use_html_formatting)
+	{
+	    const int step = 1;
+	    const double maxWidth = 800.0;
+	    const int progress = curr_compl_perc;
+	    const int relativeProgress = int((progress/100.0) * maxWidth);
+	    const int sf_id = curr_sf_ + 1;
+	    std::string description = "Preprocessing the surfaces, now handling surface number " + std::to_string(sf_id) + " of " +
+		std::to_string(num_sfs_) + ".";
+	    const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
+	    fileout_status << "<html>\n";
+	    fileout_status << "<head>\n";
+	    fileout_status << "<title>" << title << "</title>\n";
+	    fileout_status << "<link href=\"https://api.eu-cloudflow.eu/portal/twopointo/styles/style.css\" rel=\"stylesheet\" type=\"text/css\">\n";
+	    fileout_status << "</head>\n";
+	    fileout_status <<"<body style=\"margin: 20px; padding: 20px;\">\n";
+	    fileout_status << "<h1>" << title << "</h1>\n";
+	    fileout_status << "<div style=\"border-radius: 5px; border-color: lightblueblue; border-style:dashed; width: " << maxWidth << "px; height: 80px;padding:0; margin: 0; border-width: 3px;\">\n";
+	    fileout_status << "<div style=\"position: relative; top: -3px; left: -3px; border-radius: 5px; border-color: lightblue; border-style:solid; width: " << relativeProgress << "px; height: 80px;padding:0; margin: 0; border-width: 3px; background-color: lightblue;\">\n";
+	    fileout_status << "<h1 style=\"margin-left: 20px;\" >" << progress << "%</h1>\n";
+	    fileout_status << "</div>\n";
+	    fileout_status << "</div>\n";
+	    fileout_status << "<h3>" << description << "</h3>";
+	    fileout_status << "</body>\n";
+	    fileout_status << "</html>" << std::endl;
+	}
+	else
+	{
+	    fileout_status << curr_compl_perc << std::endl;
+	    fileout_status << "Preprocessing the surfaces, now handling number " << curr_sf_ + 1 << " of " <<
+		num_sfs_ << "." << std::endl;
+	}
+    }
+
+};
+
 struct StatusUpdater
 {
     StatusUpdater(int reference_time)
@@ -73,7 +148,36 @@ struct StatusUpdater
 //	timestamps_.push_back(make_pair(curr_compl_perc_, time_diff));
 #endif
 
-	fileout_status << curr_perc_local_ << std::endl;
+	bool use_html_formatting = true;
+	if (use_html_formatting)
+	{
+	    const int step = 2;
+	    const double maxWidth = 800.0;
+	    const int progress = curr_perc_local_;
+	    const int relativeProgress = int((progress/100.0) * maxWidth);
+	    const std::string description("Performing the point set registration.");
+	    const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
+	    fileout_status << "<html>\n";
+	    fileout_status << "<head>\n";
+	    fileout_status << "<title>" << title << "</title>\n";
+	    fileout_status << "<link href=\"https://api.eu-cloudflow.eu/portal/twopointo/styles/style.css\" rel=\"stylesheet\" type=\"text/css\">\n";
+	    fileout_status << "</head>\n";
+	    fileout_status <<"<body style=\"margin: 20px; padding: 20px;\">\n";
+	    fileout_status << "<h1>" << title << "</h1>\n";
+	    fileout_status << "<div style=\"border-radius: 5px; border-color: lightblueblue; border-style:dashed; width: " << maxWidth << "px; height: 80px;padding:0; margin: 0; border-width: 3px;\">\n";
+	    fileout_status << "<div style=\"position: relative; top: -3px; left: -3px; border-radius: 5px; border-color: lightblue; border-style:solid; width: " << relativeProgress << "px; height: 80px;padding:0; margin: 0; border-width: 3px; background-color: lightblue;\">\n";
+	    fileout_status << "<h1 style=\"margin-left: 20px;\" >" << progress << "%</h1>\n";
+	    fileout_status << "</div>\n";
+	    fileout_status << "</div>\n";
+	    fileout_status << "<h3>" << description << "</h3>";
+	    fileout_status << "</body>\n";
+	    fileout_status << "</html>" << std::endl;
+	}
+	else
+	{
+	    fileout_status << curr_perc_local_ << "\n";
+	    fileout_status << "Performing the point set registration." << std::endl;
+	}
     }
 
     // We write to file once curr_perc_ is increased.
@@ -592,7 +696,9 @@ namespace Go
   /// surfaces - a collection of the paramteric surfaces defining the surface model. Only instances of the ParamSurface subclass hierarchy are used
   /// par_len_el - a guiding for the side lengths of the segments in geometry space, used to determine the number of segments for elementary surfaces
   /// returns the preprocessing structures used as input for the closest point calculations
-  shared_ptr<boxStructuring::BoundingBoxStructure> preProcessClosestVectors(const std::vector<std::shared_ptr<GeomObject> >& surfaces, double par_len_el);
+  shared_ptr<boxStructuring::BoundingBoxStructure>
+  preProcessClosestVectors(const std::vector<std::shared_ptr<GeomObject> >& surfaces, double par_len_el,
+			   std::string* prep_status_filename = NULL);
 
 
   void closestPointSingleCalculation(int pt_idx, int start_idx, int skip,

@@ -60,18 +60,26 @@ using namespace Go;
 using namespace Go::boxStructuring;
 
 
-// #define LOG_CLOSEST_POINTS
+//#define LOG_CLOSEST_POINTS
 
 
 namespace Go
 {
 
 
-  shared_ptr<BoundingBoxStructure> preProcessClosestVectors(const vector<shared_ptr<GeomObject> >& surfaces, double par_len_el)
+    shared_ptr<BoundingBoxStructure> preProcessClosestVectors(const vector<shared_ptr<GeomObject> >& surfaces, double par_len_el,
+							      string* prep_status_filename)
   {
 #ifdef LOG_CLOSEST_POINTS
     clock_t t_before = clock();
 #endif
+
+    string status_filename;
+    if (prep_status_filename != 0)
+    {
+	status_filename = *prep_status_filename;
+    }
+    PreprocessPointsStatus prep_pts_status(surfaces.size(), status_filename);
 
     shared_ptr<BoundingBoxStructure> structure(new BoundingBoxStructure());  // The final object to be returned, holding all preprocessing information
     BoundingBox bigbox(3);   // A bounding box that eventually will contain all segment geometry space bounding boxes
@@ -87,6 +95,8 @@ namespace Go
 
     for (vector<shared_ptr<GeomObject> >::const_iterator surf_it = surfaces.begin(); surf_it != surf_end; ++surf_it)
       {
+//	  std::cout << srf_idx << std::endl;
+	  prep_pts_status.setCurrSurface(srf_idx);
 
 	shared_ptr<ParamSurface> paramSurf = dynamic_pointer_cast<ParamSurface>(*surf_it);
 	if (paramSurf.get())
@@ -1225,14 +1235,38 @@ void closestPointSingleCalculation(int pt_idx, int start_idx, int skip,
 #endif
 
 	int pt_idx;
+    int cntr = 0;
 #pragma omp parallel \
   default(none)	\
   private(pt_idx) \
-  shared(nmb_points_tested, start_idx, skip, inPoints, rotationMatrix, translation, boxStructure, result, lastBoxCall, return_type, search_extend)
+      shared(nmb_points_tested, start_idx, skip, inPoints, rotationMatrix, translation, boxStructure, result, lastBoxCall, return_type, search_extend, cntr, status_updater)
 #pragma omp for schedule(auto)
 	for (pt_idx = 0; pt_idx < nmb_points_tested; ++pt_idx)
-	  closestPointSingleCalculation(pt_idx, start_idx, skip, inPoints, rotationMatrix, translation, boxStructure,
-					result, lastBoxCall, return_type, search_extend);
+	{
+	    closestPointSingleCalculation(pt_idx, start_idx, skip, inPoints, rotationMatrix, translation, boxStructure,
+					  result, lastBoxCall, return_type, search_extend);
+	    #pragma omp critical
+	    {   // @@sbr201509 Estimating 10 % penalty for this updater ... Should switch to thread-id-based approach
+		// and avoid critical.
+		++cntr;
+		if (status_updater != NULL)
+		{
+//		    int num_evals = (max_idx - start_idx)/skip;
+		    double step = (double)(status_updater->perc_max_ - status_updater->perc_min_)/(double)(nmb_points_tested);//num_evals);
+		    int curr_perc_local = status_updater->curr_perc_ + floor(cntr*step);
+		    if (cntr%50000 == 0)
+		    {
+			;//			cout << "nmb_points_tested: " << nmb_points_tested << ", step: " << step << ", curr_perc_local: " << curr_perc_local << endl;
+		    }
+		    if (curr_perc_local > status_updater->curr_perc_local_)
+		    {
+			;//cout << "curr_perc_local: " << curr_perc_local << endl;
+			status_updater->curr_perc_local_ = curr_perc_local;
+			status_updater->updateStatusFile();
+		    }
+		}
+	    }
+	}
       }
 
     else
