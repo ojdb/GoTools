@@ -258,12 +258,12 @@ private:
 	bool use_html_formatting = true;
 	if (use_html_formatting)
 	{
-	    const int step = 2;
+	    const int step = 1;
 	    const double maxWidth = 800.0;
 	    const int progress = curr_compl_perc_;
 	    const int relativeProgress = int((progress/100.0) * maxWidth);
 	    const string description("Performing the point set registration.");
-	    const string title = "Registration (step " + std::to_string(step) + " of 2)";
+	    const string title = "Calculating closest points (step " + std::to_string(step) + " of 2)";
 	    fileout_status << "<html>\n";
 	    fileout_status << "<head>\n";
 	    fileout_status << "<title>" << title << "</title>\n";
@@ -730,8 +730,8 @@ int main( int argc, char* argv[] )
       const double maxWidth = 800.0;
       const int progress = 0;//curr_compl_perc;
       const int relativeProgress = int((progress/100.0) * maxWidth);
-      std::string description = "Preprocessing the surfaces, initializing.";
-      const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
+      std::string description = "Preprocessing ...";
+      const std::string title = "Calculating closest points (step " + std::to_string(step) + " of 2)";
       of_status << "<html>\n";
       of_status << "<head>\n";
       of_status << "<title>" << title << "</title>\n";
@@ -842,208 +842,104 @@ int main( int argc, char* argv[] )
   double ts = getCurrentTime();
   shared_ptr<boxStructuring::BoundingBoxStructure> structure = preProcessClosestVectors(surfaces, 200.0, &of_status_filename);
   double te = getCurrentTime();
-//  std::cout << "DEBUG: Done with the preprocessing, time spent: " << te - ts << std::endl; 
+  std::cout << "DEBUG: Done with the preprocessing, time spent: " << te - ts << std::endl; 
   cout << "... done" << endl;
 
-#if 1
-  reduce_factors.push_back(100);
-  tolerances.push_back(1.0e-5);
-  reduce_factors.push_back(1);
-  tolerances.push_back(1.0e-3);
-  RegisterPointsStatus reg_pts_status(num_pts, reduce_factors, tolerances, of_status_filename);
-
-  // // Based on empirical data ...
-  // // The estimated number of iterations on each level. Assuming linearity (wrt to sample size).
-  // level_num_iter.push_back(200);
-  // level_num_iter.push_back(10);
-  // level_scaled_iter.resize(2);
-  // perc_each_level.resize(level_num_iter.size());
-
-  // for (int ki = 0; ki < reduce_factors.size(); ++ki)
-  // {
-  //     level_scaled_iter[ki] = num_pts*level_num_iter[ki]/reduce_factors[ki];
-  //     num_scaled_iter += level_scaled_iter[ki];
-  // }
-  // for (int ki = 0; ki < perc_each_level.size(); ++ki)
-  // {
-  //     perc_each_level[ki] = 100*level_scaled_iter[ki]/num_scaled_iter;
-  //     cout << "Percentage for level " << ki << ": " << perc_each_level[ki] << endl;
-  // }
-
-#else
-  cout << "These values are just for testing!" << endl;
-  reduce_factors.push_back(10000);
-  tolerances.push_back(1.0e-5);
-  reduce_factors.push_back(1000);
-  tolerances.push_back(1.0e-3);
-  RegisterPointsStatus reg_pts_status(num_pts, reduce_factors, tolerances, of_status_filename);
-#endif
-
-#ifndef NDEBUG
-  {
-      shared_ptr<StatusUpdater> reg_upd_dummy;
-      cout << "Computing closest dist for input matrix." << endl;
-      vector<float> signed_dists_init = closestSignedDistances(pts, structure,
-							       currentTransformation.first, currentTransformation.second,
-							       reg_upd_dummy.get());
-      // cout << "Writing to file." << endl;
-      // cout << "clp.size(): " << clp.size() << ", pts.size(): " << pts.size() << endl;
-      std::ofstream fileout_debug("tmp/input_mat_signed_dists.txt");
-      write_transformation_signed_dists(signed_dists_init,
-					currentTransformation,
-					fileout_debug);
-      cout << "Done writing input dists to file." << endl;
-  }
-#endif //NDEBUG
-
-  for (int i = 0; i < reduce_factors.size(); ++i)
-  {
-      int red_fact = reduce_factors[i];
-      if (red_fact == 1)
-      {
-	  double t0 = getCurrentTime();
-//	  std::cout << "DEBUG: Starting the full registration." << std::endl;
-	  registrationIteration(pts, structure, tolerances[i], reg_pts_status);
-	  double t1 = getCurrentTime();
-//	  std::cout << "DEBUG: Done with the full registration, time spent: " << t1 - t0 << std::endl; 
-     }
-      else
-      {
-	  // This is a rough registration with a subset of the points.
-	  vector<float> few_pts;
-	  for (int j = 0, idx = 0; j < pts.size(); j += 3, ++idx)
-	      if ((idx % red_fact) == 0)
-		  for (int k = 0; k < 3; ++k)
-		      few_pts.push_back(pts[j + k]);
-	  double t0 = getCurrentTime();
-//	  std::cout << "DEBUG: Starting the rough registration." << std::endl;
-	  registrationIteration(few_pts, structure, tolerances[i], reg_pts_status);
-	  double t1 = getCurrentTime();
-//	  std::cout << "DEBUG: Done with the rough registration, time spent: " << t1 - t0 << std::endl;
-      }
-      reg_pts_status.increaseIterationLevel();
-  }
-  dropTransformation(currentTransformation, "  Final rotation and transformation:");
-  cout << "Main diagonal entries diff from 1.0:";
-  for (int i = 0; i < 3; ++i)
-      cout << " " << (currentTransformation.first[i][i] - 1.0);
-  cout << endl;
-
-  cout << "Fetching closest points." << endl; // Used to compute signed dists.
-  vector<float> clp;
-#if 1
-  int curr_perc = reg_pts_status.currentCompletionPercentage();
-  int next_perc = 100;
-  shared_ptr<StatusUpdater> reg_upd;
-//  cout << "curr_perc: " << curr_perc << ", next_perc: " << next_perc << endl;
-  if (next_perc - curr_perc > 1)
-  {
-      //    cout << "We should update the perc more often! curr_perc: " << curr_perc << ", next_perc: " << next_perc << endl;
-      reg_upd = shared_ptr<StatusUpdater>(new StatusUpdater(reg_pts_status.referenceTime()));
-      reg_upd->fileout_status_ = reg_pts_status.statusFilename();
-      reg_upd->curr_perc_ = reg_pts_status.currentCompletionPercentage();
-      reg_upd->curr_perc_local_ = reg_upd->curr_perc_;
-      reg_upd->perc_min_ = reg_upd->curr_perc_;
-      reg_upd->perc_max_ = next_perc;
-  }
-#if 0
-  clp = closestPoints(pts, structure, currentTransformation.first, currentTransformation.second, reg_upd.get());
-#else
-  double t0 = getCurrentTime();
-//  std::cout << "DEBUG: Calculating the signed distance." << std::endl; 
-  vector<float> signed_dists = closestSignedDistances(pts, structure,
-						      currentTransformation.first, currentTransformation.second,
-						      reg_upd.get());
-  double t1 = getCurrentTime();
-//  std::cout << "DEBUG: Done calculating the signed distance, time spent: " << t1 - t0 << std::endl; 
-#endif
-#else
-  clp.resize(pts.size());
-  std::fill(pts.begin(), pts.end(), 0.0);
-  cout << "Creating dummy pts to debug the code!" << endl;
-#endif
-
-  cout << "Writing to file." << endl;
-  cout << "clp.size(): " << clp.size() << ", pts.size(): " << pts.size() << endl;
-#if 0
-  write_transformation_signed_dists(signed_dists,
-				    currentTransformation,
-				    of_result);
-#else
-
-#if 0
-  std::cout << "Altering the input transformation, setting it to the identity!" << std::endl;
-  transformation_type shuffleTransformation = currentTransformation;
-  shuffleTransformation.first[0][0] = 0.0;
-  shuffleTransformation.first[0][1] = 0.0;
-  shuffleTransformation.first[0][2] = 1.0;
-  shuffleTransformation.first[1][0] = 1.0;
-  shuffleTransformation.first[1][1] = 0.0;
-  shuffleTransformation.first[1][2] = 0.0;
-  shuffleTransformation.first[2][0] = 0.0;
-  shuffleTransformation.first[2][1] = 1.0;
-  shuffleTransformation.first[2][2] = 0.0;
-  std::cout << "Using shuffle transformation instead!!!" << std::endl;
-#endif
-
-  ts = getCurrentTime();
-//  std::cout << "DEBUG: Starting writing the points." << std::endl;
-
-#if 1
-  MESSAGE("Resetting to input transformation!");
-  currentTransformation = initTransformation;
-#endif
-
-  write_transformed_points_signed_dists(pts,
-					signed_dists,
-					currentTransformation,
-					of_result);
-  te = getCurrentTime();
-//  std::cout << "DEBUG: Done writing the points, time spent: " << te - ts << std::endl;
-#endif
-
-#if 1
-  cout << "Printing timestamps file! Remove when done debugging!" << endl;
-  reg_pts_status.printTimeStamps();
-#endif
-
-#if 0
-  std::time_t current_time = time(0);
-  int time_diff = current_time - reg_pts_status.referenceTime();  
-  cout << 100 << " " << time_diff << endl;
-#endif
-
-  // clear() does not work, we fetch the file once again.
-//  of_status.clear();
-  std::ofstream of_status_final(of_status_filename);
-
+  ofstream of_status2(argv[5]); // Clearing the file ...
   if (use_html_formatting)
   {
       const int step = 2;
       const double maxWidth = 800.0;
-      const int progress = 100;//curr_compl_perc;
+      const int progress = 50;//curr_compl_perc;
       const int relativeProgress = int((progress/100.0) * maxWidth);
-      std::string description = "Done with the registration.";
-      const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
-      of_status_final << "<html>\n";
-      of_status_final << "<head>\n";
-      of_status_final << "<title>" << title << "</title>\n";
-      of_status_final << "<link href=\"https://api.eu-cloudflow.eu/portal/twopointo/styles/style.css\" rel=\"stylesheet\" type=\"text/css\">\n";
-      of_status_final << "</head>\n";
-      of_status_final <<"<body style=\"margin: 20px; padding: 20px;\">\n";
-      of_status_final << "<h1>" << title << "</h1>\n";
-      of_status_final << "<div style=\"border-radius: 5px; border-color: lightblueblue; border-style:dashed; width: " << maxWidth << "px; height: 80px;padding:0; margin: 0; border-width: 3px;\">\n";
-      of_status_final << "<div style=\"position: relative; top: -3px; left: -3px; border-radius: 5px; border-color: lightblue; border-style:solid; width: " << relativeProgress << "px; height: 80px;padding:0; margin: 0; border-width: 3px; background-color: lightblue;\">\n";
-      of_status_final << "<h1 style=\"margin-left: 20px;\" >" << progress << "%</h1>\n";
-      of_status_final << "</div>\n";
-      of_status_final << "</div>\n";
-      of_status_final << "<h3>" << description << "</h3>";
-      of_status_final << "</body>\n";
-      of_status_final << "</html>" << std::endl;
+      std::string description = "Performing the closest point evaluations ...";
+      const std::string title = "Calculating closest points (step " + std::to_string(step) + " of 2)";
+      of_status2 << "<html>\n";
+      of_status2 << "<head>\n";
+      of_status2 << "<title>" << title << "</title>\n";
+      of_status2 << "<link href=\"https://api.eu-cloudflow.eu/portal/twopointo/styles/style.css\" rel=\"stylesheet\" type=\"text/css\">\n";
+      of_status2 << "</head>\n";
+      of_status2 <<"<body style=\"margin: 20px; padding: 20px;\">\n";
+      of_status2 << "<h1>" << title << "</h1>\n";
+      of_status2 << "<div style=\"border-radius: 5px; border-color: lightblueblue; border-style:dashed; width: " << maxWidth << "px; height: 80px;padding:0; margin: 0; border-width: 3px;\">\n";
+      of_status2 << "<div style=\"position: relative; top: -3px; left: -3px; border-radius: 5px; border-color: lightblue; border-style:solid; width: " << relativeProgress << "px; height: 80px;padding:0; margin: 0; border-width: 3px; background-color: lightblue;\">\n";
+      of_status2 << "<h1 style=\"margin-left: 20px;\" >" << progress << "%</h1>\n";
+      of_status2 << "</div>\n";
+      of_status2 << "</div>\n";
+      of_status2 << "<h3>" << description << "</h3>";
+      of_status2 << "</body>\n";
+      of_status2 << "</html>" << std::endl;
   }
   else
   {
-      of_status_final << 100 << std::endl;
-      of_status_final << "Done with the registration." << std::endl;
+      of_status2 << 0 << endl;
+      of_status2 << "Calculating the closest points." << std::endl;
   }
+
+
+  reduce_factors.push_back(1);
+  tolerances.push_back(1.0e-3);
+  RegisterPointsStatus reg_pts_status(num_pts, reduce_factors, tolerances, of_status_filename);
+  shared_ptr<StatusUpdater> reg_upd(new StatusUpdater(reg_pts_status.referenceTime()));;
+  reg_upd->fileout_status_ = reg_pts_status.statusFilename();
+  reg_upd->curr_perc_ = 0;
+  reg_upd->curr_perc_local_ = reg_upd->curr_perc_;
+  reg_upd->perc_min_ = 0;
+  reg_upd->perc_max_ = 100;
+  cout << "Computing closest dist for input matrix." << endl;
+  ts = getCurrentTime();
+  vector<float> signed_dists_init = closestSignedDistances(pts, structure,
+							   currentTransformation.first, currentTransformation.second,
+							   reg_upd.get());
+  te = getCurrentTime();
+  std::cout << "DEBUG: Done with the closest point evaluations, time spent: " << te - ts << std::endl; 
+//  cout << "Done computing closest dist for input matrix." << endl;
+  // cout << "Writing to file." << endl;
+  // cout << "clp.size(): " << clp.size() << ", pts.size(): " << pts.size() << endl;
+  std::ofstream fileout_debug("tmp/input_mat_signed_dists.txt");
+
+  ts = getCurrentTime();
+  write_transformed_points_signed_dists(pts,
+					signed_dists_init,
+					currentTransformation,
+					of_result);
+  te = getCurrentTime();
+  std::cout << "DEBUG: Done writing result to file, time spent: " << te - ts << std::endl; 
+
+  cout << "Done writing input dists to file." << endl;
+
+  ofstream of_status3(argv[5]); // Clearing the file ...
+  if (use_html_formatting)
+  {
+      const int step = 2;
+      const double maxWidth = 800.0;
+      const int progress = 100;//curr_perc_local_;
+//	    std::cout << "DEBUG: progress: " << progress << std::endl;
+      const int relativeProgress = int((progress/100.0) * maxWidth);
+      const std::string description("Done with the point set registration.");
+      const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
+      of_status3 << "<html>\n";
+      of_status3 << "<head>\n";
+      of_status3 << "<title>" << title << "</title>\n";
+      of_status3 << "<link href=\"https://api.eu-cloudflow.eu/portal/twopointo/styles/style.css\" rel=\"stylesheet\" type=\"text/css\">\n";
+      of_status3 << "</head>\n";
+      of_status3 <<"<body style=\"margin: 20px; padding: 20px;\">\n";
+      of_status3 << "<h1>" << title << "</h1>\n";
+      of_status3 << "<div style=\"border-radius: 5px; border-color: lightblueblue; border-style:dashed; width: " << maxWidth << "px; height: 80px;padding:0; margin: 0; border-width: 3px;\">\n";
+      of_status3 << "<div style=\"position: relative; top: -3px; left: -3px; border-radius: 5px; border-color: lightblue; border-style:solid; width: " << relativeProgress << "px; height: 80px;padding:0; margin: 0; border-width: 3px; background-color: lightblue;\">\n";
+      of_status3 << "<h1 style=\"margin-left: 20px;\" >" << progress << "%</h1>\n";
+      of_status3 << "</div>\n";
+      of_status3 << "</div>\n";
+      of_status3 << "<h3>" << description << "</h3>";
+      of_status3 << "</body>\n";
+      of_status3 << "</html>" << std::endl;
+  }
+  else
+  {
+      of_status3 << 100 << "\n";
+      of_status3 << "Performing the point set registration." << std::endl;
+  }
+
+  return 0;
+
 }

@@ -122,6 +122,7 @@ private:
 
 };
 
+// Status updater for the registration (closest point calls).
 struct StatusUpdater
 {
     StatusUpdater(int reference_time)
@@ -154,6 +155,7 @@ struct StatusUpdater
 	    const int step = 2;
 	    const double maxWidth = 800.0;
 	    const int progress = curr_perc_local_;
+//	    std::cout << "DEBUG: progress: " << progress << std::endl;
 	    const int relativeProgress = int((progress/100.0) * maxWidth);
 	    const std::string description("Performing the point set registration.");
 	    const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
@@ -185,10 +187,10 @@ struct StatusUpdater
 
     std::time_t reference_time_; // Seconds since 01-Jan-1970, set from constructor.
 
-    int curr_perc_;
-    int curr_perc_local_;
-    int perc_min_;
-    int perc_max_;
+    int curr_perc_; // The percentage at the start of a batch run with lots of closest point.
+    int curr_perc_local_; // The percentage when a certain number of closest point evals have been performed.
+    int perc_min_; // Min of percentage domain.
+    int perc_max_; // Max of percentage domain.
 
 };
 

@@ -1260,7 +1260,7 @@ void closestPointSingleCalculation(int pt_idx, int start_idx, int skip,
 		    }
 		    if (curr_perc_local > status_updater->curr_perc_local_)
 		    {
-			;//cout << "curr_perc_local: " << curr_perc_local << endl;
+//			printf("curr_perc_local: %d\n", curr_perc_local);
 			status_updater->curr_perc_local_ = curr_perc_local;
 			status_updater->updateStatusFile();
 		    }
