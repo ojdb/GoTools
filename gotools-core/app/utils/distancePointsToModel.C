@@ -705,10 +705,10 @@ int main( int argc, char* argv[] )
 {
   GoTools::init();
 
-  if (argc != 6)
+  if (argc != 5)
     {
-      cout << "Usage:  " << argv[0] << " <sf_model.g2> <points.txt> <initial_transf.txt> "
-	  "<transf_points_signed_dists.ply> <completion_status.txt>" << endl;
+      cout << "Usage:  " << argv[0] << " <sf_model.g2> <points.txt> "
+	  "<points_signed_dists.ply> <completion_status.txt>" << endl;
 //	  "<final_transf_signed_dists.txt> <completion_status.txt>" << endl;
 
       return 1;
@@ -716,11 +716,11 @@ int main( int argc, char* argv[] )
 
   ifstream in_surf(argv[1]);
   ifstream in_pts(argv[2]);
-  ifstream in_transf(argv[3]);
-  ofstream of_result(argv[4]); // Using the ply format.
+//  ifstream in_transf(argv[3]);
+  ofstream of_result(argv[3]); // Using the ply format.
 //  ofstream of_result(argv[4]); // Line #1-#3: Rotation. #4: Translation. #5: # pts. #6: Signed dist 1st pt. #7: Signed dist 2nd ...
-  ofstream of_status(argv[5]); // An integer in the set {0, ..., 100}, an estimated percentage of how much work is done.
-  string of_status_filename(argv[5]);
+  ofstream of_status(argv[4]); // An integer in the set {0, ..., 100}, an estimated percentage of how much work is done.
+  string of_status_filename(argv[4]);
 
   of_status.clear();
   bool use_html_formatting = true;
@@ -822,17 +822,21 @@ int main( int argc, char* argv[] )
   // std::cout << "of_status_filename: " << of_status_filename << std::endl;
   // PreprocessPointsStatus prep_pts_status(surfaces.size(), of_status_filename);
 
+  // We use the identity matrix as our rotation.
   startRotation.resize(3);
   for (int kj = 0; kj < 3; ++kj)
   {
       startRotation[kj].resize(3);
       for (int ki = 0; ki < 3; ++ki)
       {
-	  in_transf >> startRotation[kj][ki];
+//	  in_transf >> startRotation[kj][ki];
+	  startRotation[kj][ki] = (ki == kj) ? 1.0 : 0.0;
       }
   }
+  // We use the 0 vector as our translation.
   startTranslation.resize(3);
-  startTranslation.read(in_transf);
+  std::fill(startTranslation.begin(), startTranslation.end(), 0.0);
+//  startTranslation.read(in_transf);
 
   currentTransformation = transformation_type(startRotation, startTranslation);
   transformation_type initTransformation = transformation_type(startRotation, startTranslation);
@@ -845,7 +849,7 @@ int main( int argc, char* argv[] )
   std::cout << "DEBUG: Done with the preprocessing, time spent: " << te - ts << std::endl; 
   cout << "... done" << endl;
 
-  ofstream of_status2(argv[5]); // Clearing the file ...
+  ofstream of_status2(argv[4]); // Clearing the file ...
   if (use_html_formatting)
   {
       const int step = 2;
@@ -908,7 +912,7 @@ int main( int argc, char* argv[] )
 
   cout << "Done writing input dists to file." << endl;
 
-  ofstream of_status3(argv[5]); // Clearing the file ...
+  ofstream of_status3(argv[4]); // Clearing the file ...
   if (use_html_formatting)
   {
       const int step = 2;
