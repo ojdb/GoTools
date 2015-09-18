@@ -45,6 +45,7 @@
 #include <fstream>
 #include <assert.h>
 #include <time.h>
+//#include <ctime>
 #include "GoTools/geometry/ObjectHeader.h"
 #include "GoTools/geometry/GoTools.h"
 //#include "GoTools/geometry/GeomObject.h"
@@ -88,9 +89,21 @@ public:
 	assert(reduce_factors.size() == 2);
 	num_iter_.resize(reduce_factors.size());
 #if 1 // For the Rhino model with 236 sfs.
-	num_iter_[0] = 40; // This is not the actual number of iterations but just a qualified guess.
-	num_iter_[1] = 3; // This is not the actual number of iterations but just a qualified guess.
+	// The num_iter_ is used to estimate the completion percentage.
+	// With identity_transformation.
+	// num_iter_[0] = 40; // This is not the actual number of iterations but just a qualified guess.
+	// num_iter_[1] = 3; // This is not the actual number of iterations but just a qualified guess.
+	// With GUI-created transformation.
+	assert(reduce_factors.size() == 4);
+	// @@sbr We are not takoing into account that the first iterations cost more ...
+	// We sort of fix this by reducing the number of iterations for the next levels ...
+	// Additionally the time spent is not linear wrt the points, it is less than that.
+	num_iter_[0] = 100; // This is not the actual number of iterations but just a qualified guess.
+	num_iter_[1] = 30; // This is not the actual number of iterations but just a qualified guess.
+	num_iter_[2] = 10; // This is not the actual number of iterations but just a qualified guess.
+	num_iter_[3] = 2;//3; // Qualified guess. 3 for 1e-03. 20 for 1e-06.
 #else // For the original raw model with 12 sfs.
+	assert(reduce_factors.size() == 2);
 	num_iter_[0] = 200; // This is not the actual number of iterations but just a qualified guess.
 	num_iter_[1] = 10; // This is not the actual number of iterations but just a qualified guess.
 #endif
@@ -416,6 +429,24 @@ double transformationL2(const transformation_type& transformation)
   return sum2;
 }
 
+// Variant of the Frobenius norm, where we expect the rotation to converge towards
+// the identity matrix, and include the translation vector to form a 3x4 matrix.
+double transformationL2_v2(const transformation_type& transformation)
+{
+  vector<vector<double> > rotation = transformation.first;
+  Point translation = transformation.second;
+  double sum2 = translation.length2();
+  for (int i = 0; i < 3; ++i)
+    {
+      int next_i = (i + 1) % 3;
+      double term0 = 1.0 - rotation[i][i];
+      double term1 = rotation[i][next_i];
+      double term2 = rotation[next_i][i];
+      sum2 += term0*term0 + term1*term1 + term2*term2;
+    }
+  return sum2;
+}
+
 
 double avgDist(const vector<float>& pts1, const vector<float>& pts2, const transformation_type& transformation)
 {
@@ -639,7 +670,12 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
       RegistrationResult regResult = fineRegistration(clp_p, pts_p, false, regParameters);
 
       transformation_type changeTransformation = transformation_type(regResult.rotation_matrix_, regResult.translation_);
+#if 0
       double changeL2 = transformationL2(changeTransformation);
+#else
+      std::cout << "DEBUG: Trying alternative transformation norm." << std::endl;
+      double changeL2 = transformationL2_v2(changeTransformation);
+#endif
       currentTransformation = combine(currentTransformation, changeTransformation);
 #if 0
       cout << "Avg dist." << endl;
@@ -649,11 +685,22 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
       int newton_iterations = regResult.last_newton_iteration_;
       bool reg_OK = (regResult.result_type_ == RegistrationOK) && (newton_iterations < max_newton_iterations);
 
-#if 0
+#if 1
+
+      // current date/time based on current system
+      std::time_t now = time(0);
+      // convert now to string form
+      char* dt = ctime(&now);
+      cout << "The local date and time is: " << dt << endl;
+
       cout << "Nmb pts: " << nmb_pts << " Iter: " << i;
       cout << " Avg clp dist: " << avg_dist1 << " => " << avg_dist2;
       cout << " Transf L2-chg: " << changeL2;
       cout << " Nmb Nwt it: " << (regResult.last_newton_iteration_ + 1);
+      cout << " Rotation:";
+      for (int i = 0; i < 3; ++i)
+	  for (int j = 0; j < 3; ++j)
+	cout << " " << currentTransformation.first[i][j];
       cout << " Transl:";
       for (int j = 0; j < 3; ++j)
 	cout << " " << currentTransformation.second[j];
@@ -845,11 +892,45 @@ int main( int argc, char* argv[] )
 //  std::cout << "DEBUG: Done with the preprocessing, time spent: " << te - ts << std::endl; 
   cout << "... done" << endl;
 
+#if 0
+  // We write to screen the size of the largest structure box.
+  double voxel_length = structure->voxel_length();
+  Point big_vox_low = structure->big_vox_low();
+  std::cout << "voxel_length: " << voxel_length << ", big_vox_low: " << big_vox_low << std::endl;
+#endif
+
 #if 1
+  // Empirically we experience convergence noise starting at 3.7 e-06 L2-change, due to floating point precision data I guess.
+  reduce_factors.push_back(1000);
+  tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(100);
-  tolerances.push_back(1.0e-5);
+  tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  reduce_factors.push_back(10);
+  tolerances.push_back(4.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1);
-  tolerances.push_back(1.0e-3);
+  // L2, i.e. squared, so pure translation (no rotation) w/L2-norm 1e-04 => 1e-02 translation.
+  // We are not satisfied with less than 1e-02 translation as this will accumulate, aiming for 1e-03.
+  // @@sbr Not sure if less than 1e-06 will converge due to floating point precision.
+  tolerances.push_back(1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+
+  // We set the minimum points which will define the model.
+  const int min_num_sample_pts = 300;//100;
+  for (size_t ki = 0; ki < reduce_factors.size(); ++ki)
+  {
+      int num_sample_pts = num_pts/reduce_factors[ki];
+      std::cout << "red_factor: " << reduce_factors[ki] << ", num_sample_pts: " << num_sample_pts << std::endl;
+      if (num_sample_pts < min_num_sample_pts)
+      {
+	  reduce_factors[ki] *= (float)num_sample_pts/(float)min_num_sample_pts;
+	  if (reduce_factors[ki] < 1)
+	  {
+	      reduce_factors[ki] = 1;
+	  }
+	  num_sample_pts = num_pts/reduce_factors[ki];
+	  std::cout << "ki: " << ki << ", red_factor: " << reduce_factors[ki] << ", num_sample_pts: " << num_sample_pts << std::endl;
+      }
+  }
+
   RegisterPointsStatus reg_pts_status(num_pts, reduce_factors, tolerances, of_status_filename);
 
   // // Based on empirical data ...
@@ -989,7 +1070,7 @@ int main( int argc, char* argv[] )
   ts = getCurrentTime();
 //  std::cout << "DEBUG: Starting writing the points." << std::endl;
 
-#if 1
+#if 0
   MESSAGE("Resetting to input transformation!");
   currentTransformation = initTransformation;
 #endif
