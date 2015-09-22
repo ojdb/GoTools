@@ -94,14 +94,15 @@ public:
 	// num_iter_[0] = 40; // This is not the actual number of iterations but just a qualified guess.
 	// num_iter_[1] = 3; // This is not the actual number of iterations but just a qualified guess.
 	// With GUI-created transformation.
-	assert(reduce_factors.size() == 4);
+	assert(reduce_factors.size() == 5);
 	// @@sbr We are not takoing into account that the first iterations cost more ...
 	// We sort of fix this by reducing the number of iterations for the next levels ...
 	// Additionally the time spent is not linear wrt the points, it is less than that.
 	num_iter_[0] = 100; // This is not the actual number of iterations but just a qualified guess.
-	num_iter_[1] = 30; // This is not the actual number of iterations but just a qualified guess.
-	num_iter_[2] = 10; // This is not the actual number of iterations but just a qualified guess.
-	num_iter_[3] = 2;//3; // Qualified guess. 3 for 1e-03. 20 for 1e-06.
+	num_iter_[1] = 100; // This is not the actual number of iterations but just a qualified guess.
+	num_iter_[2] = 30; // This is not the actual number of iterations but just a qualified guess.
+	num_iter_[3] = 10; // This is not the actual number of iterations but just a qualified guess.
+	num_iter_[4] = 2;//3; // Qualified guess. 3 for 1e-03. 20 for 1e-06.
 #else // For the original raw model with 12 sfs.
 	assert(reduce_factors.size() == 2);
 	num_iter_[0] = 200; // This is not the actual number of iterations but just a qualified guess.
@@ -338,6 +339,24 @@ private:
     }
 };
 
+Point centerOfMass(const vector<float>& pts)
+{
+    const int dim = 3;
+    const int num_pts = pts.size()/dim;
+
+    Point pt_sum(0.0, 0.0, 0.0);
+    for (size_t ki = 0; ki < pts.size(); ki += dim)
+    {
+	pt_sum[0] += pts[ki];
+	pt_sum[1] += pts[ki+1];
+	pt_sum[2] += pts[ki+2];
+    }
+
+    Point mass_center = pt_sum/(double)num_pts;
+
+    return mass_center;
+}
+
 typedef pair<vector<vector<double> >, Point>  transformation_type;
 
 transformation_type currentTransformation;
@@ -431,6 +450,7 @@ double transformationL2(const transformation_type& transformation)
 
 // Variant of the Frobenius norm, where we expect the rotation to converge towards
 // the identity matrix, and include the translation vector to form a 3x4 matrix.
+// @@sbr Our case seems to be dominated by the translation vector, hence no difference from the other version.
 double transformationL2_v2(const transformation_type& transformation)
 {
   vector<vector<double> > rotation = transformation.first;
@@ -448,9 +468,12 @@ double transformationL2_v2(const transformation_type& transformation)
 }
 
 
+// The avgDist uses the squared L2-norm (which places greater weight on points further away).
 double avgDist(const vector<float>& pts1, const vector<float>& pts2, const transformation_type& transformation)
 {
   double sum2 = 0.0;
+  double sum_L1 = 0.0;
+  double sum_L2 = 0.0;
   vector<vector<double> > rotation = transformation.first;
   Point translation = transformation.second;
   int nmb_pts = 0;
@@ -479,18 +502,26 @@ double avgDist(const vector<float>& pts1, const vector<float>& pts2, const trans
 	  cout << endl;
 	  cout << "    T(pt) - clp =";
 	}
+      double sum3 = 0.0;
       for (int j = 0; j < 3; ++j)
 	{
 	  double sum = translation[j] - pts1[i + j];
 	  for (int k = 0; k < 3; ++k)
 	    sum += rotation[j][k] * pts2[i + k];
 	  sum2 += sum * sum;
+	  sum3 += sum * sum;
 	  if (nmb_pts < show_pts)
 	    cout << " " << sum;
 	}
+//      std::cout << "sqrt(sum3): " << sqrt(sum3) << std::endl;
+      double sqrt_sum3 = sqrt(sum3);
+//      std::cout << "DEBUG: sqrt_sum3: " << sqrt_sum3 << std::endl;
+      sum_L1 += sqrt(sum3);
+      sum_L2 += sum3;
       if (nmb_pts < show_pts)
 	cout << endl << "    L2 is " << (sum2 - prev_sum) << endl;
     }
+//  std::cout << "DEBUG: Mean deviation: " << sum_L1/(double)nmb_pts << ", mean sum_L2: " << sum_L2/(double)nmb_pts << std::endl;
   return sum2 / (double)nmb_pts;
 }
 
@@ -660,7 +691,21 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
       // closestPoints() is the routine which consumes almost all the time (inside this function).
       vector<float> clp = closestPoints(pts, structure, currentTransformation.first, currentTransformation.second, reg_upd.get());
 //      cout << "Computing avg dist." << endl;
+//      std::cout << "DEBUG: Computing avg_dist1." << std::endl;
       double avg_dist1 = avgDist(clp, pts, currentTransformation);
+      std::cout << "avg_dist1: " << avg_dist1 << std::endl;
+
+      Point clp_mass_center = centerOfMass(clp);
+      Point pts_mass_center = centerOfMass(pts);
+      Point transl_mass_center = clp_mass_center - pts_mass_center;
+#if 0
+      std::cout << "clp_mass_center: (" << clp_mass_center[0] << ", " << clp_mass_center[1] << ", " <<
+	  clp_mass_center[2] << ")" << std::endl;
+      std::cout << "pts_mass_center: (" << pts_mass_center[0] << ", " << pts_mass_center[1] << ", " <<
+	  pts_mass_center[2] << ")" << std::endl;
+      std::cout << "transl_mass_center: (" << transl_mass_center[0] << ", " << transl_mass_center[1] << ", " <<
+	  transl_mass_center[2] << ")" << std::endl;
+#endif
 
       RegistrationInput regParameters;
       vector<Point> clp_p = floatsToPoints(clp);
@@ -670,7 +715,7 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
       RegistrationResult regResult = fineRegistration(clp_p, pts_p, false, regParameters);
 
       transformation_type changeTransformation = transformation_type(regResult.rotation_matrix_, regResult.translation_);
-#if 0
+#if 1
       double changeL2 = transformationL2(changeTransformation);
 #else
       std::cout << "DEBUG: Trying alternative transformation norm." << std::endl;
@@ -680,13 +725,14 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
 #if 0
       cout << "Avg dist." << endl;
 #endif
+//      std::cout << "DEBUG: Computing avg_dist2." << std::endl;
       double avg_dist2 = avgDist(clp, pts, currentTransformation);
+      std::cout << "avg_dist2: " << avg_dist2 << std::endl;
 
       int newton_iterations = regResult.last_newton_iteration_;
       bool reg_OK = (regResult.result_type_ == RegistrationOK) && (newton_iterations < max_newton_iterations);
 
-#if 1
-
+#if 0
       // current date/time based on current system
       std::time_t now = time(0);
       // convert now to string form
@@ -901,6 +947,9 @@ int main( int argc, char* argv[] )
 
 #if 1
   // Empirically we experience convergence noise starting at 3.7 e-06 L2-change, due to floating point precision data I guess.
+#if 1
+  reduce_factors.push_back(10000);
+  tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1000);
   tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(100);
@@ -911,10 +960,15 @@ int main( int argc, char* argv[] )
   // L2, i.e. squared, so pure translation (no rotation) w/L2-norm 1e-04 => 1e-02 translation.
   // We are not satisfied with less than 1e-02 translation as this will accumulate, aiming for 1e-03.
   // @@sbr Not sure if less than 1e-06 will converge due to floating point precision.
-  tolerances.push_back(1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
-
+  tolerances.push_back(4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+#else // August 2015.
+  reduce_factors.push_back(100);
+  tolerances.push_back(1.0e-5);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+  reduce_factors.push_back(1);
+  tolerances.push_back(1.0e-3);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+#endif
   // We set the minimum points which will define the model.
-  const int min_num_sample_pts = 300;//100;
+  const int min_num_sample_pts = 100;//300;//100;
   for (size_t ki = 0; ki < reduce_factors.size(); ++ki)
   {
       int num_sample_pts = num_pts/reduce_factors[ki];
