@@ -955,7 +955,7 @@ int main( int argc, char* argv[] )
   reduce_factors.push_back(100);
   tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(10);
-  tolerances.push_back(4.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1);
   // L2, i.e. squared, so pure translation (no rotation) w/L2-norm 1e-04 => 1e-02 translation.
   // We are not satisfied with less than 1e-02 translation as this will accumulate, aiming for 1e-03.
