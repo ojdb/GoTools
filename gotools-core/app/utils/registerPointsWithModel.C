@@ -693,7 +693,7 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
 //      cout << "Computing avg dist." << endl;
 //      std::cout << "DEBUG: Computing avg_dist1." << std::endl;
       double avg_dist1 = avgDist(clp, pts, currentTransformation);
-      std::cout << "avg_dist1: " << avg_dist1 << std::endl;
+//      std::cout << "avg_dist1: " << avg_dist1 << std::endl;
 
       Point clp_mass_center = centerOfMass(clp);
       Point pts_mass_center = centerOfMass(pts);
@@ -727,7 +727,7 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
 #endif
 //      std::cout << "DEBUG: Computing avg_dist2." << std::endl;
       double avg_dist2 = avgDist(clp, pts, currentTransformation);
-      std::cout << "avg_dist2: " << avg_dist2 << std::endl;
+//      std::cout << "avg_dist2: " << avg_dist2 << std::endl;
 
       int newton_iterations = regResult.last_newton_iteration_;
       bool reg_OK = (regResult.result_type_ == RegistrationOK) && (newton_iterations < max_newton_iterations);
@@ -949,18 +949,18 @@ int main( int argc, char* argv[] )
   // Empirically we experience convergence noise starting at 3.7 e-06 L2-change, due to floating point precision data I guess.
 #if 1
   reduce_factors.push_back(10000);
-  tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1000);
-  tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(100);
-  tolerances.push_back(4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(10);
-  tolerances.push_back(2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1);
   // L2, i.e. squared, so pure translation (no rotation) w/L2-norm 1e-04 => 1e-02 translation.
   // We are not satisfied with less than 1e-02 translation as this will accumulate, aiming for 1e-03.
   // @@sbr Not sure if less than 1e-06 will converge due to floating point precision.
-  tolerances.push_back(4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+  tolerances.push_back(1.0e-05);//4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
 #else // August 2015.
   reduce_factors.push_back(100);
   tolerances.push_back(1.0e-5);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
