@@ -696,7 +696,7 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
 //      std::cout << "avg_dist1: " << avg_dist1 << std::endl;
 
       Point clp_mass_center = centerOfMass(clp);
-      Point pts_mass_center = centerOfMass(pts);
+      Point pts_mass_center = centerOfMass(pts); // @@sbr201509 This should be computed only once.
       Point transl_mass_center = clp_mass_center - pts_mass_center;
 #if 0
       std::cout << "clp_mass_center: (" << clp_mass_center[0] << ", " << clp_mass_center[1] << ", " <<
@@ -712,9 +712,26 @@ void registrationIteration(const vector<float>& pts, const shared_ptr<boxStructu
       vector<Point> pts_p = floatsToPoints(pts, currentTransformation);
       int max_newton_iterations = regParameters.max_newton_iterations_;
 //      cout << "Fine registration." << endl;
+
+#if 0 // @@sbr201509 This does not seem to help us, as least not for current case ...
+      std::cout << "Translating with transl_mass_center!" << std::endl;
+      // Since this is done on the pts_p which is not used afterwards we only need to update the regResult.translation_ with
+      // our transl_mass_center vector.
+      for (size_t ki = 0; ki < pts_p.size(); ++ki)
+      {
+	  pts_p[ki] += transl_mass_center;
+      }
+#endif
+
       RegistrationResult regResult = fineRegistration(clp_p, pts_p, false, regParameters);
 
       transformation_type changeTransformation = transformation_type(regResult.rotation_matrix_, regResult.translation_);
+
+#if 0
+      std::cout << "Translating with transl_mass_center!" << std::endl;
+      changeTransformation.second += transl_mass_center;
+#endif
+
 #if 1
       double changeL2 = transformationL2(changeTransformation);
 #else
@@ -946,21 +963,21 @@ int main( int argc, char* argv[] )
 #endif
 
 #if 1
-  // Empirically we experience convergence noise starting at 3.7 e-06 L2-change, due to floating point precision data I guess.
+  // Empirically we experience convergence noise starting at x e-06 L2-change, due to floating point precision data I guess.
 #if 1
   reduce_factors.push_back(10000);
-  tolerances.push_back(1.0e-06);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//1.0e-09);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1000);
-  tolerances.push_back(1.0e-06);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//1.0e-08);//8);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(100);
-  tolerances.push_back(1.0e-06);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//1.0e-07);//8);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(10);
-  tolerances.push_back(1.0e-06);//2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  tolerances.push_back(1.0e-06);//1.0e-06);//2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
   reduce_factors.push_back(1);
   // L2, i.e. squared, so pure translation (no rotation) w/L2-norm 1e-04 => 1e-02 translation.
   // We are not satisfied with less than 1e-02 translation as this will accumulate, aiming for 1e-03.
   // @@sbr Not sure if less than 1e-06 will converge due to floating point precision.
-  tolerances.push_back(1.0e-05);//4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+  tolerances.push_back(1.0e-05);//1.0e-05);//4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
 #else // August 2015.
   reduce_factors.push_back(100);
   tolerances.push_back(1.0e-5);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
