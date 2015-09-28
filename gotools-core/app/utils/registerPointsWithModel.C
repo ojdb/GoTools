@@ -963,21 +963,24 @@ int main( int argc, char* argv[] )
 #endif
 
 #if 1
-  // Empirically we experience convergence noise starting at x e-06 L2-change, due to floating point precision data I guess.
+  // CloudFlow: Empirically we experience convergence noise starting
+  // at x e-06 L2-change, due to floating point precision input pts I
+  // guess.
 #if 1
-  reduce_factors.push_back(10000);
-  tolerances.push_back(1.0e-06);//1.0e-09);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
-  reduce_factors.push_back(1000);
-  tolerances.push_back(1.0e-06);//1.0e-08);//8);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
-  reduce_factors.push_back(100);
-  tolerances.push_back(1.0e-06);//1.0e-07);//8);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
-  reduce_factors.push_back(10);
-  tolerances.push_back(1.0e-06);//1.0e-06);//2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
-  reduce_factors.push_back(1);
   // L2, i.e. squared, so pure translation (no rotation) w/L2-norm 1e-04 => 1e-02 translation.
-  // We are not satisfied with less than 1e-02 translation as this will accumulate, aiming for 1e-03.
+  // We are not satisfied with less than 1e-02 translation as this will accumulate, should aim for 1e-03.
   // @@sbr Not sure if less than 1e-06 will converge due to floating point precision.
-  tolerances.push_back(1.0e-05);//1.0e-05);//4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
+  const double final_tol = 1.0e-04;
+  reduce_factors.push_back(10000);
+  tolerances.push_back(0.1*final_tol);//6);//1.0e-09);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  reduce_factors.push_back(1000);
+  tolerances.push_back(0.1*final_tol);//6);//1.0e-08);//8);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  reduce_factors.push_back(100);
+  tolerances.push_back(0.1*final_tol);//6);//1.0e-07);//8);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  reduce_factors.push_back(10);
+  tolerances.push_back(0.1*final_tol);//6);//1.0e-06);//2.0e-05);//1.0e-05);//4.0e-06);//1.0e-05);//4.0e-06);//10);//7);//5);
+  reduce_factors.push_back(1);
+  tolerances.push_back(final_tol);//5);//1.0e-05);//4.0e-05);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
 #else // August 2015.
   reduce_factors.push_back(100);
   tolerances.push_back(1.0e-5);//1.0e-04);//4.0e-05);//1.0e-05);//4.0e-06);//4);//3);
