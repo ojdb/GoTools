@@ -108,7 +108,7 @@ class SmoothCurve
     ///                           the approximation.
     /// \return status value: 0 = OK, negative not OK.
     int attach(const shared_ptr<SplineCurve>& incurve,
-	       int coef_known[],
+	       const int coef_known[],
 	       int numSideConstraints = 0);
 
     /// Compute the smoothing part of the equation system.
@@ -127,9 +127,9 @@ class SmoothCurve
     ///                    Should lie in the unit interval.
     ///                    Typically they are all 1.0.
     /// \param weight multiplier of all weights in the pnt_weights vector
-    void setLeastSquares(std::vector<double>& pnts,
-			 std::vector<double>& param_pnts,
-			 std::vector<double>&  pnt_weights,
+    void setLeastSquares(const std::vector<double>& pnts,
+			 const std::vector<double>& param_pnts,
+			 const std::vector<double>&  pnt_weights,
 			 double weight);
 
     /// Set periodicity constraints in one par. dir.
@@ -159,7 +159,7 @@ class SmoothCurve
     int kcond_; // Number of unknowns in equation system (# of coefs + kconstraint).
     int kconstraint_; // # of constraints.
 
-    int *coefknown_;       // Array indicating the status of coefficients, i.e.
+    int const *coefknown_;       // Array indicating the status of coefficients, i.e.
     // free, fixed, not involved, equal to a given
     // coefficients.
     std::vector<int> pivot_;    // Array giving the position of the free coefficients

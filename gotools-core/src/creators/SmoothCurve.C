@@ -119,7 +119,7 @@ int
 SmoothCurve::attach(const shared_ptr<SplineCurve>& incurve,       
 		      // Input curve representing the spline space
 		      // 		      int fixatend[],
-		      int coef_known[],
+		     const int coef_known[],
 		      int numSideConstraints)
   //--------------------------------------------------------------------------
   //
@@ -390,9 +390,9 @@ SmoothCurve::setOptim(const double wgt1,  // Weight of 1. order term
 //****************************************************************************
 
 void
-SmoothCurve::setLeastSquares(std::vector<double>& pnts, // Data points.
-			       std::vector<double>& param_pnts, // Par.
-			       std::vector<double>& pnt_weights,
+SmoothCurve::setLeastSquares(const std::vector<double>& pnts, // Data points.
+			     const std::vector<double>& param_pnts, // Par.
+			     const std::vector<double>& pnt_weights,
 			       double wgt)  // Weight of current term.    
   //--------------------------------------------------------------------------
   //     Purpose : Compute the contribution to the equation system
