@@ -1,4 +1,3 @@
-#define FANTASTIC_DEBUG
 //===========================================================================
 //                                                                           
 // File: ftSurfaceSet.C                                                      
@@ -40,6 +39,7 @@
 #include <cstdio> // for debugging
 
 #define DEBUG
+#define FANTASTIC_DEBUG
 
 using std::vector;
 using std::min;
@@ -650,8 +650,10 @@ ftSurfaceSet::getBoundaryConditions(const vector<ftEdgeBase*>& edgeloop,
       all_bd_curves[ki][0]->makeKnotStartRegular();
       for (kj=1; kj<(int)all_bd_curves[ki].size(); kj++)
 	  {
+              // double dummy_dist;
+              // const int debug_cont = 0; // @@sbr101706 Calculate the input continuity!
 	      all_bd_curves[ki][kj]->makeKnotEndRegular();
-	      all_bd_curves[ki][0]->appendCurve(all_bd_curves[ki][kj].get());
+	      all_bd_curves[ki][0]->appendCurve(all_bd_curves[ki][kj].get());//, debug_cont, dummy_dist);
 	  }
       bd_curves.push_back(all_bd_curves[ki][0]);
 
@@ -1031,6 +1033,27 @@ ftSurfaceSet::fetchSamplePoints(const vector<ftEdgeBase*>& edgeloop,
   ftMessage status;
   int ki;
 
+#ifndef NDEBUG
+  {
+      std::ofstream debug_out("tmp/edgeloop.g2");
+      for (size_t kj = 0; kj < edgeloop.size(); ++kj)
+      {
+          ftEdge* ft_edge = edgeloop[kj]->geomEdge();
+          shared_ptr<ParamCurve> geom_cv = ft_edge->geomCurve();
+          if (geom_cv->instanceType() == Class_CurveOnSurface)
+          {
+              shared_ptr<CurveOnSurface> cv_on_sf = dynamic_pointer_cast<CurveOnSurface>(geom_cv);
+              shared_ptr<ParamCurve> space_cv = cv_on_sf->spaceCurve();
+              if (space_cv)
+              {
+                  space_cv->writeStandardHeader(debug_out);
+                  space_cv->write(debug_out);
+              }
+          }
+      }
+  }
+#endif
+  
   // Fetch edges starting at corners
   vector<ftEdgeBase*> edgc;
   edgc.reserve(4);
@@ -1398,11 +1421,23 @@ ftMessage ftSurfaceSet::getOuterLoop(vector<ftEdgeBase*>& outer_loop,
     // Assuming edges have already been split.
     cmUtils::updateWithNewCorners(loopvec[0], corners, additional_corner_pts_, toptol_.gap);
 
+    // If the number of boundaries was not correct we see if we may still consider the surface set as
+    // having a rectangular domain.
+    if (corners.size() > 4)
+    {
+        vector<int> new_corners = cmUtils::removeInnerCorners(loopvec[0], corners);
+        if (new_corners.size() == 4)
+        {
+            MESSAGE("DEBUG: Successfully reduced the number of corners to 4!");
+            corners = new_corners;
+        }
+    }
+
     if (corners.size() < 2 || corners.size() > 4)
-	{
-	    status.setError(FT_WRONG_NO_OF_BOUNDARIES);
-	    return status;
-	}
+    {
+        status.setError(FT_WRONG_NO_OF_BOUNDARIES);
+        return status;
+    }
 
     int one_past_last = (corners.front() > 0) ? corners[0] : corners[0] + (int)loopvec[0].size();
     corners.push_back(one_past_last);
@@ -1420,36 +1455,6 @@ void ftSurfaceSet::getInitBndData(vector<ftEdgeBase*>& edgc, ftPointSet& points,
 //
 //===========================================================================
 {
-
-//   // debugging
-//   std::ofstream of3("data/debug3.g2");
-//   for (int i = 0; i < faces_.size(); ++i) {
-//       faces_[i]->Surface()->writeStandardHeader(of3);
-//       faces_[i]->Surface()->write(of3);
-//   }
-//   // end of debugging
-
-//   // debugging
-//   std::ofstream of("data/debug.g2");
-//   for (int i = 0; i < edgc.size(); ++i) {
-//       edgc[i]->geomEdge()->SpaceCurve()->writeStandardHeader(of);
-//       edgc[i]->geomEdge()->SpaceCurve()->write(of);
-//   }
-//   // end of debugging
-
-//   // debugging
-//   std::ofstream of2("data/debug2.g2");
-//   ftEdgeBase* first_edge = edgc[0];
-//   first_edge->geomEdge()->SpaceCurve()->writeStandardHeader(of2);
-//   first_edge->geomEdge()->SpaceCurve()->write(of2);
-//   ftEdgeBase* cr_edge = first_edge->next();
-//   while (cr_edge != first_edge) {
-//       cr_edge->geomEdge()->SpaceCurve()->writeStandardHeader(of2);
-//       cr_edge->geomEdge()->SpaceCurve()->write(of2);
-//       cr_edge = cr_edge->next();
-//   }
-//   // end of debugging
-
   int bnd = -1;    // Boundary type of current edge. 1 == outer bnd, 2 == inner bnd.
   int csidx;  // Current_edge surface-index (in faces_).
 
@@ -1542,10 +1547,15 @@ void ftSurfaceSet::getInitBndData(vector<ftEdgeBase*>& edgc, ftPointSet& points,
   while (true)
     {
 	// Get number of points to evaluate along the edge (including end points).
-	int max_samples = 40;
-	int nmb_eval = min(max_samples, nmbToEval(dynamic_cast<ftEdge*>(curr_edge),
-						  curr_edge->tMin(), curr_edge->tMax())); // >= 2
-
+        ftEdge* ft_edge = dynamic_cast<ftEdge*>(curr_edge);
+	int nmb_eval = nmbToEval(ft_edge,
+                                 curr_edge->tMin(), curr_edge->tMax()); // >= 2
+        //MESSAGE("nmb_eval: " << nmb_eval);
+        double cv_length = ft_edge->estimatedCurveLength();
+        //MESSAGE("DEBUG: cv_length: " << cv_length);
+	const int min_samples = 5; // With too few samples we may fail picking the correct sub-face.
+	const int max_samples = 80;
+        nmb_eval = std::max(min_samples, std::min(nmb_eval, max_samples));
 	getEdgeInnerData(curr_edge, prevpt, points, edgc, cn, set_second, nmb_eval);
 	if (nmb_eval != 2)
 	    set_second = false;
@@ -1674,6 +1684,16 @@ void ftSurfaceSet::addBndPoint(shared_ptr<ftSurfaceSetPoint>& ftpnt,
 //===========================================================================
 {
     PointIter latestpt = points.addEntry(ftpnt);
+#ifndef NDEBUG
+    { // Many of these errors seem to be consecutive in order.
+        const double dist = prevpt->pntDist(latestpt);
+        const double num_tol = 1.0e-14;
+        if (dist < num_tol)
+        {
+            MESSAGE("Something wrong going on, adding the same point! " << ftpnt->getPoint());
+        }
+    }
+#endif
     prevpt->addNeighbour(latestpt);
     latestpt->addNeighbour(prevpt);
     prevpt = latestpt;
@@ -1728,6 +1748,7 @@ void ftSurfaceSet::getEdgeInnerData(ftEdgeBase* curr_edge, PointIter& prevpt,
   int bnd = curr_edge->onBoundary() ? 1 : 2;
   // Get index of curr_edge surface and curr_edge->Twin() surface
   int csidx = 0;
+  const double num_tol = 1.0e-14;
   while ((curr_edge->face()) != faces_[csidx].get()) ++csidx;
   int ctidx = -1; // To denote that curr_edge->Twin() == 0
   if (!(curr_edge->onBoundary())) {
@@ -1761,7 +1782,7 @@ void ftSurfaceSet::getEdgeInnerData(ftEdgeBase* curr_edge, PointIter& prevpt,
     }
 
   //  for (; kj<nmb_eval-1; kj++, tpar+=parinc) {
-  while (tpar < parmax)
+  while (tpar < parmax - num_tol) // We subtract num_tol to avoid sampling in end point.
     {
       if (kj == 0)
 	// A degenerate edge is expected. Update corner incides.
@@ -1878,8 +1899,6 @@ ftMessage ftSurfaceSet::getInitInnerData(ftPointSet& points, int max_sample)
 
       int min_samples = 3; //1;
 
-
-      //	int min_samples = 3;
       // @@@220302 max_samples should be set based on geometry. The sampling
       // really should make sure the triangles are quite similar, as it seems
       // to be a requirement of the parametrization.
@@ -2017,7 +2036,7 @@ ftMessage ftSurfaceSet::getInitInnerData(ftPointSet& points, int max_sample)
       // Add points on inner boundaries
       vector<shared_ptr<ftEdgeBase> > start_edges = faces_[i]->startEdges();
       ftEdgeBase *inner_edge = 0;
-      int max_samples = 40;
+      int max_samples = 80;
       for (size_t kr=1; kr<start_edges.size();  kr++)
       {
 	  inner_edge = start_edges[kr].get();
@@ -2301,7 +2320,7 @@ ftMessage ftSurfaceSet::merge(double& max_error, double& mean_error,
       }
   }
 #endif // FANTASTIC_DEBUG
-
+  
   int no_warn = local_status.noOfWarnings();
   for (ki=0; ki<no_warn; ki++)
       status.addWarning(local_status.getWarning(ki));

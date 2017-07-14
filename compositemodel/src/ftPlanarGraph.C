@@ -17,12 +17,20 @@
 #include "GoTools/compositemodel/ftPlanarGraph.h"
 #include <fstream>
 #include "GoTools/compositemodel/ftSurfaceSetPoint.h"
+#include "GoTools/compositemodel/ftSurface.h"
+#include "GoTools/geometry/LineCloud.h"
 
 using std::make_pair;
-using namespace Go;
+
+namespace Go
+{
 
 const double knot_tol = 1e-18;
 
+// Return the intersection point between the two line segments. If lines are parallell the returned
+// point has dimension 0.
+Vector2D intersect2DLines(Vector2D from1, Vector2D dir1, Vector2D from2, Vector2D dir2);
+    
 // Ordering on ftSearchNode, given by higher y-value.
 // If equal y-value, sort by higher x-value.
 bool nodeSortBool(const ftSearchNode& node1, const ftSearchNode& node2)
@@ -127,6 +135,21 @@ ftGraphEdge::~ftGraphEdge()
 {
 }
 
+
+//===========================================================================
+double ftGraphEdge::startparam() const
+//===========================================================================
+{
+    return lower_[1];
+}
+
+//===========================================================================
+double ftGraphEdge::endparam() const
+//===========================================================================
+{
+    return upper_[1];
+}
+
 //===========================================================================
 Vector2D ftGraphEdge::startPoint() const
 //===========================================================================
@@ -189,6 +212,20 @@ const vector<shared_ptr<ftFaceBase> >& ftGraphEdge::getFaces() const
 //===========================================================================
 {
     return faces_;
+}
+
+//===========================================================================
+Vector2D ftGraphEdge::lower() const
+//===========================================================================
+{
+    return lower_;
+}
+
+//===========================================================================
+Vector2D ftGraphEdge::upper() const
+//===========================================================================
+{
+    return upper_;
 }
 
 //===========================================================================
@@ -316,14 +353,14 @@ void ftPlanarGraph::getLocalParameters(double& u, double& v,
     double v_lower, v_upper;
     findBoundingTrapezoid(pt, left_edge, right_edge, v_lower, v_upper, face);
 
-    // We find the horizontal line interseting left end right edges, on which the
+    // We find the horizontal line intersecting left end right edges, on which the
     // point lies. We then describe point as a convex combination of the intersection
-    // points. Finally we transfrom calculations to the original parameter domain.
+    // points. Finally we transform calculations to the original parameter domain.
     Vector2D left_pt = left_edge.point(pt[1]);
     Vector2D right_pt = right_edge.point(pt[1]);
     double width = right_pt[0] - left_pt[0];
     // t+(1-t)=1 => t*left_pt+(1-t)*right_pt=pt
-    // Due to numerical instabilities we must make sure t-value is inside [0,1]
+    // We make sure that t-value is inside [0,1]
     double t = std::min(1.0, std::max(0.0, (right_pt[0] - pt[0]) / width));
 
     // Param pts in orig domain.
@@ -331,6 +368,267 @@ void ftPlanarGraph::getLocalParameters(double& u, double& v,
     Vector2D new_right_pt = right_edge.point(pt[1], face);
     Vector2D return_vector = t*new_left_pt + (1-t)*new_right_pt;
 
+    // @@sbr201704 If there is a degenerate edge in any of the end points we must carefully select the
+    // suitable parameter value along the degenerate edge. We should make sure that a straight line in
+    // the global domain maps to a straight line in the local domain.
+    // @@sbr201704 This call should be a separate function! Extract when it is complete.
+    ftSurface* ft_sf = face->asFtSurface();
+    shared_ptr<ParamSurface> sf = ft_sf->surface();
+    bool deg_b, deg_r, deg_t, deg_l;
+    const double deg_tol = 1e-12;
+    sf->isDegenerate(deg_b, deg_r, deg_t, deg_l, deg_tol);
+
+    bool degenerate = (deg_b || deg_t || deg_t || deg_l);
+    if (degenerate) {
+        // For the degenerate case we compute the convex combination of the corner points, i.e. we find
+        // the barycentric coordinates. By looking at the contribution from the non-degenerate corner
+        // points we get a well defined parameter value in that direction. The parameter value in the
+        // other direction is given by the location on the line from the degenerate point which extends
+        // through the non-degenerate edge. We currently only support cases with 1 degenerate edge.
+
+        Vector2D left_edge_start_pt = left_edge.point(left_edge.startparam(), face);
+        Vector2D left_edge_end_pt = left_edge.point(left_edge.endparam(), face);
+        bool left_edge_start_deg = false;
+        bool left_edge_end_deg = false;
+            
+        Vector2D right_edge_start_pt = right_edge.point(right_edge.startparam(), face);
+        Vector2D right_edge_end_pt = right_edge.point(right_edge.endparam(), face);
+        bool right_edge_start_deg = false;
+        bool right_edge_end_deg = false;
+        
+        bool left_pt_deg = false;
+        bool right_pt_deg = false;
+        
+        RectDomain dom = sf->containingDomain();
+        double knot_tol = 1e-08;
+        int num_deg = 0;
+        if (deg_b) {
+            ++num_deg;
+
+            if (left_edge_start_pt[1] - dom.vmin() < knot_tol)
+                left_edge_start_deg = true;
+            if (left_edge_end_pt[1] - dom.vmin() < knot_tol)
+                left_edge_end_deg = true;
+            if (right_edge_start_pt[1] - dom.vmin() < knot_tol)
+                right_edge_start_deg = true;
+            if (right_edge_end_pt[1] - dom.vmin() < knot_tol)
+                right_edge_end_deg = true;
+
+            if (new_left_pt[1] - dom.vmin() < knot_tol)
+                left_pt_deg = true;
+            if (new_right_pt[1] - dom.vmin() < knot_tol)
+                right_pt_deg = true;
+        }
+        if (deg_r) {
+            ++num_deg;
+
+            if (dom.umax() - left_edge_start_pt[0] < knot_tol)
+                left_edge_start_deg = true;
+            if (dom.umax() - left_edge_end_pt[0] < knot_tol)
+                left_edge_end_deg = true;
+            if (dom.umax() - right_edge_start_pt[0] < knot_tol)
+                right_edge_start_deg = true;
+            if (dom.umax() - right_edge_end_pt[0] < knot_tol)
+                right_edge_end_deg = true;
+
+            if (dom.umax() - new_left_pt[0] < knot_tol)
+                left_pt_deg = true;
+            if (dom.umax() - new_right_pt[0] < knot_tol)
+                right_pt_deg = true;
+        }
+        if (deg_t) {
+            ++num_deg;
+
+            if (dom.vmax() - left_edge_start_pt[0] < knot_tol)
+                left_edge_start_deg = true;
+            if (dom.vmax() - left_edge_end_pt[0] < knot_tol)
+                left_edge_end_deg = true;
+            if (dom.vmax() - right_edge_start_pt[0] < knot_tol)
+                right_edge_start_deg = true;
+            if (dom.vmax() - right_edge_end_pt[0] < knot_tol)
+                right_edge_end_deg = true;
+
+            if (dom.vmax()- new_left_pt[1]< knot_tol)
+                left_pt_deg = true;
+            if (dom.vmax() - new_right_pt[1] < knot_tol)
+                right_pt_deg = true;
+        }
+        if (deg_l) {
+            ++num_deg;
+
+            if (left_edge_start_pt[0] - dom.umin() < knot_tol)
+                left_edge_start_deg = true;
+            if (left_edge_end_pt[0] - dom.umin() < knot_tol)
+                left_edge_end_deg = true;
+            if (right_edge_start_pt[0] - dom.umin() < knot_tol)
+                right_edge_start_deg = true;
+            if (right_edge_end_pt[0] - dom.umin() < knot_tol)
+                right_edge_end_deg = true;
+            
+            if (new_left_pt[0] - dom.umin() < knot_tol)
+                left_pt_deg = true;
+            if (new_right_pt[0] - dom.umin() < knot_tol)
+                right_pt_deg = true;
+        }
+        if (num_deg > 1) {
+            MESSAGE("More than 1 degenerate edge, not supported, expect failure!");
+        }
+        
+//        if (left_pt_deg || right_pt_deg) {
+        if (left_edge_start_deg || left_edge_end_deg || right_edge_start_deg || right_edge_end_deg) {
+            // std::cout << "left_edge_start_deg: " << left_edge_start_deg << ", left_edge_end_deg: " << left_edge_end_deg <<
+            //     ", right_edge_start_deg: " << right_edge_start_deg << ", right_edge_end_deg: " << right_edge_end_deg <<
+            // std::endl;
+            // std::cout << "left_pt_deg: " << left_pt_deg << ", right_pt_deg: " << right_pt_deg << std::endl;
+            // std::cout << "u: " << u << ", v: " << v << std::endl;
+            // std::cout << "new_left_pt: " << new_left_pt << ", new_right_pt: " << new_right_pt << std::endl;
+            // std::cout << "return_vector: " << return_vector << std::endl;
+            
+            // If either new_left_pt or new_right_pt are on a degenerate edge the case requires special
+            // handling.
+
+            // We must check if the left_pt or right_pt is along a degenerate edge.
+            Vector2D pt1, pt2, pt3;
+            Vector2D local_pt1, local_pt2, local_pt3;
+            double vmin, vmax;
+            // The deg point (in global parameter domain) as well as point on the oppsite side along min/max edge.
+            Point deg_pt, opp_min, opp_max;
+            if (left_edge_start_deg || left_edge_end_deg) {
+                vmin = right_edge.startparam();
+                vmax = right_edge.endparam();
+                pt1 = right_edge.lower();
+                pt2 = right_edge.upper();
+                pt3 = (left_edge_start_deg) ? left_edge.lower() : left_edge.upper();
+                // Then the params in the local surface.
+                local_pt1 = right_edge.point(right_edge.startparam(), face);
+                local_pt2 = right_edge.point(right_edge.endparam(), face);
+                local_pt3 = (left_edge_start_deg) ? left_edge.point(left_edge.startparam(), face) :
+                    left_edge.point(left_edge.endparam(), face);
+            } else {
+                vmin = left_edge.startparam();
+                vmax = left_edge.endparam();
+                pt1 = left_edge.lower();
+                pt2 = left_edge.upper();
+                pt3 = (right_edge_start_deg) ? right_edge.lower() : right_edge.upper();
+                // Then the params in the local surface.
+                local_pt1 = left_edge.point(left_edge.startparam(), face);
+                local_pt2 = left_edge.point(left_edge.endparam(), face);
+                local_pt3 = (right_edge_start_deg) ? right_edge.point(right_edge.startparam(), face) :
+                    right_edge.point(right_edge.endparam(), face);
+            }
+
+#if 0
+            // Using Cramer's rule we find the barycentric coordinates.
+            double area0 = areaTriangle(pt1, pt2, pt3);
+            double area1 = areaTriangle(pt2, pt3, pt);
+            double area2 = areaTriangle(pt3, pt1, pt);
+            double area3 = areaTriangle(pt1, pt2, pt);
+            // The parameter in the degenerate direction is given as a convex combination of
+            // bar1 & bar2.
+            double bar1 = area1/area0;
+            double bar2 = area2/area0;
+            double bar3 = area3/area0;
+            // std::cout << "bar1: " << bar1 << ", bar2: " << bar2 << ", bar3: " << bar3 << std::endl;
+
+            // std::cout << "old u: " << u << ", old v: " << v << std::endl;            
+            // We can expect the surface normal of the global and local surf to coincide
+            // (approximately). But the parameter directions may be rotated.
+            MESSAGE("Relating to full parameter domain, we should relate to the sub-domain given by the trapezoid!");
+            if (deg_b || deg_t) {
+                // @@sbr201704 Working for this specific case ... Fix!
+                //u = (bar1 + bar2 < knot_tol) ? vmin : (vmin*bar1 + vmax*bar2)/(bar1 + bar2);
+                u = (bar1 + bar2 < knot_tol) ? dom.umin() : (dom.umin()*bar1 + dom.umax()*bar2)/(bar1 + bar2);
+                v = (deg_t) ? dom.vmin() + bar3*(dom.vmax() - dom.vmin()) : dom.vmax() - bar3*(dom.vmax() - dom.vmin());
+            } else {
+                // @@sbr201704 Working for this specific case ... Fix!
+                // v = (bar1 + bar2 < knot_tol) ? vmin : (vmin*bar1 + vmax*bar2)/(bar1 + bar2);
+                v = (bar1 + bar2 < knot_tol) ? dom.vmin() : (dom.vmin()*bar1 + dom.vmax()*bar2)/(bar1 + bar2);
+                u = (deg_r) ? dom.umin() + bar3*(dom.umax() - dom.umin()) : dom.umax() - bar3*(dom.umax() - dom.umin());
+            }
+            //MESSAGE("pt: " << pt);
+            //MESSAGE("u: " << u << ", v: " << v);
+#endif
+            
+#if 0
+            // A second version, slightly improved ...
+            if (deg_b || deg_t) {
+                // @@sbr201704 Working for this specific case ... Fix!
+                //u = (bar1 + bar2 < knot_tol) ? vmin : (vmin*bar1 + vmax*bar2)/(bar1 + bar2);
+                u = (bar1 + bar2 < knot_tol) ? dom.umin() : (local_pt1[0]*bar1 + local_pt2[0]*bar2)/(bar1 + bar2);
+                v = (deg_t) ? dom.vmin() + bar3*(dom.vmax() - dom.vmin()) : dom.vmax() - bar3*(dom.vmax() - dom.vmin());
+            } else {
+                // @@sbr201704 Working for this specific case ... Fix!
+                // v = (bar1 + bar2 < knot_tol) ? vmin : (vmin*bar1 + vmax*bar2)/(bar1 + bar2);
+                v = (bar1 + bar2 < knot_tol) ? dom.vmin() : (local_pt2[1]*bar1 + local_pt2[1]*bar2)/(bar1 + bar2);
+                u = (deg_r) ? dom.umin() + bar3*(dom.umax() - dom.umin()) : dom.umax() - bar3*(dom.umax() - dom.umin());
+            }
+            //MESSAGE("Second try: u: " << u << ", v: " << v);
+#endif
+
+            // We find the intersection between the line going from the degenerate point and intersecting
+            // the non-degenerate edge. We then use the convex combination of the local parameter values
+            // along the edge to find the corresponding local parameter point, giving us the parameter
+            // value in the degenerate direction. Finally the parameter in the opposite direction is
+            // given by expressing pt as the convex combination of the degenerate global parameter point
+            // and the intersection point.
+            Vector2D pt_line = pt - pt3;
+            Vector2D non_deg_line = pt2 - pt1;
+            Vector2D int_pt = intersect2DLines(pt3, pt_line, pt1, non_deg_line);
+            //MESSAGE("int_pt: " << int_pt);
+            // We express the int_pt as a convex combination of pt1 & pt2 (it should line between the points).
+            // t+(1-t)=1 => t*pt1+(1-t)*pt2=int_pt
+            const double width0 = pt2[0] - pt1[0];
+            const double width1 = pt2[1] - pt1[1];
+            const int ind = (fabs(pt2[0] - pt1[0]) > fabs(pt2[1] - pt1[1])) ? 0 : 1;
+            const double width =  pt2[ind] - pt1[ind];
+            // We allow the t-value to be outside [0,1].
+            const double t = (pt2[ind] - int_pt[ind])/width;
+            Vector2D int_pt2 = t*pt1 + (1.0-t)*pt2;
+            const double conv_dist = int_pt.dist(int_pt2);
+            Vector2D local_int_pt = t*local_pt1 + (1.0-t)*local_pt2;
+            //MESSAGE("DEBUG: conv_dist: " << conv_dist);
+            if (deg_b || deg_t)
+            {
+                u = local_int_pt[0];
+                v = local_pt3[1] + (local_int_pt[1] - local_pt3[1])*(pt.dist(pt3))/(int_pt.dist(pt3));
+            }
+            else
+            {
+                MESSAGE("Not yet tested!");
+                v = local_int_pt[1];
+                u = local_pt3[0] + (local_int_pt[0] - local_pt3[0])*(pt[0] - pt3[0])/(int_pt[0] - pt3[0]);
+            }
+            //MESSAGE("Third try: u: " << u << ", v: " << v);
+
+#ifndef NDEBUG
+            {
+                std::ofstream fileout_debug("tmp/pts.g2");
+                Point local_pt = face->point(u, v);
+                vector<double> pts(local_pt.begin(), local_pt.end());
+                PointCloud3D pt_cl(pts.begin(), pts.size()/3);
+                pt_cl.writeStandardHeader(fileout_debug);
+                pt_cl.write(fileout_debug);
+            }
+#endif
+            
+            return;
+            
+        } // else { // If the deg param pt is not included we should not run into trouble.
+            // std::cout << "Neither left_pt or right_pt is degenerate. pt: " << pt
+            //           << ", return_vector: " << return_vector << std::endl;
+            //std::cout << "Surface degenerate, but not end points of edges! Did not expect this." << std::endl;
+//        }      
+    }
+    
+// #if 1 // Debugging
+//     double knot_tol = 1e-04; // @@sbr201704 Rather large value ... Required for current case. Fix calling tolerance!
+    // We expect the points to share v-value (i.e. lie on a horizontal line). No, not in local domain.
+    // if (fabs(new_left_pt[1] - new_right_pt[1]) > knot_tol) {
+    //     MESSAGE("ftPlanarGraph::getLocalParameters(): Method seems to have failed!");
+    //     std::cout << "new_left_pt: " << new_left_pt << ", new_right_pt: " << new_right_pt << std::endl;
+    // }
+// #endif
+    
     u = return_vector[0];
     v = return_vector[1];
 }
@@ -386,7 +684,7 @@ void ftPlanarGraph::createOrderedSegments(vector<ftSamplePoint*>& nodes) //ftPoi
 		ALWAYS_ERROR_IF((edge_iter == edges.end()) ||
 			    ((edges.end() - edge_iter) < nmb_in_edges),
 			    "This should never happen!");
-		int pos = edge_iter- edges.begin();
+            int pos = edge_iter - edges.begin();
 	    edges.erase(edge_iter, edge_iter + nmb_in_edges);
 	    edges.insert(edges.begin() + pos, out_edges.begin(), out_edges.end());
 	} else
@@ -620,5 +918,82 @@ void ftPlanarGraph::findBoundingTrapezoid(Vector2D& pt,
 	    face = outer_face;
     } else
 	THROW("This should never happen!");
+
+#ifndef NDEBUG
+    {
+        std::ofstream fileout_debug("tmp/graph_edges.g2");
+
+        Vector2D left_lower = left.point(left.startparam(), face);
+        Vector2D left_upper = left.point(left.endparam(), face);
+        Point left_low = face->point(left_lower[0], left_lower[1]);
+        Point left_high = face->point(left_upper[0], left_upper[1]);
+        vector<double> left_pts(left_low.begin(), left_low.end());
+        left_pts.insert(left_pts.end(), left_high.begin(), left_high.end());
+        LineCloud line_cl(left_pts.begin(), left_pts.size()/6);
+        line_cl.writeStandardHeader(fileout_debug);
+        line_cl.write(fileout_debug);
+
+        Vector2D right_lower = right.point(right.startparam(), face);
+        Vector2D right_upper = right.point(right.endparam(), face);
+        Point right_low = face->point(right_lower[0], right_lower[1]);
+        Point right_high = face->point(right_upper[0], right_upper[1]);
+        vector<double> right_pts(right_low.begin(), right_low.end());
+        right_pts.insert(right_pts.end(), right_high.begin(), right_high.end());
+        LineCloud line_cl2(right_pts.begin(), right_pts.size()/6);
+        line_cl2.writeStandardHeader(fileout_debug);
+        line_cl2.write(fileout_debug);
+    }
+#endif
+
 }
 
+
+//===========================================================================
+double areaTriangle(const Vector2D& corner1, const Vector2D& corner2, const Vector2D& corner3)
+//===========================================================================
+{
+    // We use Heron's formula to compute the area.
+    double a = corner1.dist(corner2);
+    double b = corner2.dist(corner3);
+    double c = corner3.dist(corner1);
+    double s = 0.5*(a + b + c); // The half-sum.
+    double prod = s*(s - a)*(s - b)*(s - c);
+    double tol = 1.0e-08; // To avoid nan.
+    double area = (prod < tol) ? 0.0 : sqrt(prod);
+
+    return area;
+}
+
+
+Vector2D intersect2DLines(Vector2D from1, Vector2D dir1, Vector2D from2, Vector2D dir2)
+{
+    Vector2D int_pt;
+    const double ang = dir1.angle(dir2);
+    const double ang_tol = 1.0e-04;
+    if (ang < ang_tol) // The lines are parallell.
+    {
+        return int_pt;
+    }
+    
+    // from1 + t1*dir1 = from2 + t2*dir2
+
+    // from1[0] + t1*dir1[0] = from2[0] + t2*dir2[0]
+    // from1[1] + t1*dir1[1] = from2[1] + t2*dir2[1]
+
+    // t1 = ((from2[0] + t2*dir2[0] - from1[0])/dir1[0])
+    // t2*dir1[1]*dir2[0]/dir1[0] - t2*dir2[1] = from2[1] - from1[1] + ((from1[0] - from2[0])/dir1[0])*dir1[1]
+    if (fabs(dir1[0]) > fabs(dir2[0]))
+    {
+        double t2 = (from2[1] - from1[1] + ((from1[0] - from2[0])/dir1[0])*dir1[1])/((dir1[1]*dir2[0]/dir1[0]) - dir2[1]);
+        int_pt = from2 + t2*dir2;
+    }
+    else
+    {
+        double t1 = (from1[1] - from2[1] - ((from1[0] + from2[0])/dir2[0])*dir2[1])/((dir2[1]*dir1[0]/dir2[0]) - dir1[1]);
+        int_pt = from1 + t1*dir1;
+    }
+
+    return int_pt;
+}
+
+}
