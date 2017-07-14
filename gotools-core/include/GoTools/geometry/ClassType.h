@@ -66,6 +66,7 @@ enum ClassType
 
     Class_SplineCurve = 100,
     Class_CurveOnSurface = 110,
+    Class_CurveOnVolume = 111,
     Class_Line = 120,
     Class_Circle = 130,
     Class_Ellipse = 140,
@@ -81,6 +82,7 @@ enum ClassType
     Class_CompositeSurface = 240,
     Class_Plane = 250,
     Class_Cylinder = 260,
+    Class_SurfaceOfLinearExtrusion = 261,
     Class_Sphere = 270,
     Class_Cone = 280,
     Class_Torus = 290,

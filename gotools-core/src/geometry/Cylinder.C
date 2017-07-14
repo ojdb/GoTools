@@ -418,33 +418,33 @@ vector<shared_ptr<ParamCurve> >
 Cylinder::constParamCurves(double parameter, bool pardir_is_u) const
 //===========================================================================
 {
-	bool cyl_pardir_is_u = (isSwapped()) ? !pardir_is_u : pardir_is_u;
-	if (isSwapped())
-	{
-	    MESSAGE("Not yet tested this function with swapped cylinder!");
-	}
-	vector<shared_ptr<ParamCurve> > res;
-	if (cyl_pardir_is_u)
-	{
-		shared_ptr<ParamCurve> circle = getCircle(parameter);
-		res.push_back(circle);
-	}
-	else
-	{
-		if (!isBounded())
-		{
-			MESSAGE("constParamCurves() not supported for unbounded cylinder in linear direction!");
-		}
-		else
-		{
-			double vmin = domain_.vmin();
-			double vmax = domain_.vmax();
-			Point cv_min = ParamSurface::point(parameter, vmin);
-			Point cv_max = ParamSurface::point(parameter, vmax);
-			shared_ptr<Line> line(new Line(cv_min, cv_max, vmin, vmax));
-			res.push_back(line);
-		}
-	}
+    bool cyl_pardir_is_u = (isSwapped()) ? !pardir_is_u : pardir_is_u;
+    if (isSwapped())
+    {
+        MESSAGE("Not yet tested this function with swapped cylinder!");
+    }
+    vector<shared_ptr<ParamCurve> > res;
+    if (cyl_pardir_is_u)
+    {
+        shared_ptr<ParamCurve> circle = getCircle(parameter);
+        res.push_back(circle);
+    }
+    else
+    {
+        if (!isBounded())
+        {
+            MESSAGE("constParamCurves() not supported for unbounded cylinder in linear direction!");
+        }
+        else
+        {
+            double vmin = domain_.vmin();
+            double vmax = domain_.vmax();
+            Point cv_min = ParamSurface::point(parameter, vmin);
+            Point cv_max = ParamSurface::point(parameter, vmax);
+            shared_ptr<Line> line(new Line(cv_min, cv_max, vmin, vmax));
+            res.push_back(line);
+        }
+    }
     
     return res;
 }
@@ -793,6 +793,11 @@ void Cylinder::setParameterBounds(double from_upar, double from_vpar,
 
     // NOTE: If parameters are swapped, from_upar and from_vpar are swapped.
     // Ditto for to_upar/to_vpar.
+    double tol = 1.0e-13;
+    if (from_upar > -2.0 * M_PI - tol && from_upar < -2.0 * M_PI)
+      from_upar = -2.0 * M_PI;
+    if (to_upar < 2.0 * M_PI + tol && to_upar >2.0 * M_PI)
+      to_upar = 2.0 * M_PI;
     if (from_upar < -2.0 * M_PI || to_upar > 2.0 * M_PI)
         THROW("u-parameters must be in [-2pi, 2pi].");
     if (to_upar - from_upar > 2.0 * M_PI)
@@ -814,6 +819,11 @@ void Cylinder::setParamBoundsU(double from_upar, double to_upar)
     getOrientedParameters(from_upar, from_vpar);
     getOrientedParameters(to_upar, to_vpar);
 
+    double tol = 1.0e-13;
+    if (from_upar > -2.0 * M_PI - tol && from_upar < -2.0 * M_PI)
+      from_upar = -2.0 * M_PI;
+    if (to_upar < 2.0 * M_PI + tol && to_upar >2.0 * M_PI)
+      to_upar = 2.0 * M_PI;
     if (from_upar >= to_upar )
         THROW("First u-parameter must be strictly less than second.");
     if (from_upar < -2.0 * M_PI || to_upar > 2.0 * M_PI)
@@ -876,7 +886,7 @@ SplineSurface* Cylinder::createSplineSurface() const
     double vmin = domain_.vmin();
     double vmax = domain_.vmax();
     if (!isBounded()) {
-        double max = 1.0e6;//8; // "Large" number...
+        double max = 1.0e8; // "Large" number...
         if (vmin == -numeric_limits<double>::infinity())
             vmin = -max;
         if (vmax == numeric_limits<double>::infinity())
