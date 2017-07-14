@@ -93,9 +93,9 @@ private:
 	    const int progress = curr_compl_perc;
 	    const int relativeProgress = int((progress/100.0) * maxWidth);
 	    const int sf_id = curr_sf_ + 1;
-	    std::string description = "Preprocessing the surfaces, now handling surface number " + std::to_string(sf_id) + " of " +
-		std::to_string(num_sfs_) + ".";
-	    const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
+	    std::string description = "Preprocessing the surfaces, now handling surface number " + std::to_string(static_cast<long long>(sf_id)) + " of " +
+		std::to_string(static_cast<long long>(num_sfs_)) + ".";
+	    const std::string title = "Registration (step " + std::to_string(static_cast<long long>(step)) + " of 2)";
 	    fileout_status << "<html>\n";
 	    fileout_status << "<head>\n";
 	    fileout_status << "<title>" << title << "</title>\n";
@@ -158,7 +158,7 @@ struct StatusUpdater
 //	    std::cout << "DEBUG: progress: " << progress << std::endl;
 	    const int relativeProgress = int((progress/100.0) * maxWidth);
 	    const std::string description("Performing the point set registration.");
-	    const std::string title = "Registration (step " + std::to_string(step) + " of 2)";
+	    const std::string title = "Registration (step " + std::to_string(static_cast<long long>(step)) + " of 2)";
 	    fileout_status << "<html>\n";
 	    fileout_status << "<head>\n";
 	    fileout_status << "<title>" << title << "</title>\n";
