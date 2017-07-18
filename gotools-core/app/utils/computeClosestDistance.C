@@ -122,19 +122,23 @@ int main( int argc, char* argv[] )
   vector<float> closest_pts = closestSignedDistances(pts, structure, currentTransformation.first, currentTransformation.second);
 
   auto abs_max_it = max_element(std::begin(closest_pts), std::end(closest_pts), abs_comp);
+  
+
+  
   auto abs_min_it = min_element(std::begin(closest_pts), std::end(closest_pts), abs_comp);
-
-  std::cout << "abs min, abs max = " << *abs_min_it << ", " << *abs_max_it << std::endl;  
-
   auto max_it = max_element(std::begin(closest_pts), std::end(closest_pts));
   auto min_it = min_element(std::begin(closest_pts), std::end(closest_pts));
+  std::cout << "abs min = " << *abs_min_it << "\n";  
+  std::cout << "min = " << *min_it << "\n";
+  std::cout << "max = " << *max_it << std::endl;  
+ 
+  std::cout << pts[3*(min_it-closest_pts.begin())] << " " << pts[3*(min_it-closest_pts.begin())+1] << " " << pts[3*(min_it-closest_pts.begin())+2] << "\n";
+  std::cout << pts[3*(max_it-closest_pts.begin())] << " " << pts[3*(max_it-closest_pts.begin())+1] << " " << pts[3*(max_it-closest_pts.begin())+2] << "\n" << endl;
 
-  std::cout << "min, max = " << *min_it << ", " << *max_it << std::endl;  
-  
-  ofstream out_str("distances.txt");
-  for (int i = 0; i < closest_pts.size(); i += 1)
-      out_str << closest_pts[i] << "\n";
+  //ofstream out_str("distances.txt");
+  //for (int i = 0; i < closest_pts.size(); i += 1)
+  //    out_str << closest_pts[i] << "\n";
 	
-  std::cout << "results have been written to distance.txt" << std::endl; 
+  //std::cout << "results have been written to distance.txt" << std::endl; 
 
 }
