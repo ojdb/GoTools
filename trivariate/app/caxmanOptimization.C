@@ -25,18 +25,66 @@ int main (int argc, char* argv[]) {
   ifs >> time >> numpts >> dimpts;
 
   std::string dummy;
-  double alphadeg = 60.0;                  
-  double alpha = alphadeg/360.0*2*M_PI;
+  double alphadeg;                  
+  double alpha;
   double delta;
 
   Point c(0.0,0.0,0.0);
   Point u(10.0,0.0,0.0);
   Point v(0.0,8.0/sqrt(3.0)+1,0.0);
   Point h(0.0,0.0,4.0);
+  
+  {
+	// Compute the nominal geometry
+    Point hn(0.0,0.0,3.9);
+	  
+	alphadeg = 60;
+	alpha = alphadeg/360.0*2*M_PI;
+    
+	c = Point(0.05,0.05,0.0);
+	u = Point(9.9,0.0,0.0);
+    v = Point(0.0,8.0/sqrt(3.0)+0.9,0.0);
+    h = Point(0.0,0.0,3.9);
+    
+	// Compute quantities that define the geometry
+    double mu = 3.9/sqrt(3.0);
+    Point vw = mu*v/v.length();
+    Point w = c+h+vw;
+
+    // Define points of the tetrahedron
+    Point p1 = c;
+    Point p2 = c+u;
+    Point p3 = c+u+v;
+    Point p4 = c+v;
+    Point p5 = p1+h+vw;
+    Point p6 = p2+h+vw;
+    Point p7 = p3+h-vw;
+    Point p8 = p4+h-vw;
+
+    Hexahedron hex(p1,p2,p3,p4,p5,p6,p7,p8);
+    //cout << (p1-p2).length() << "\n" << (p2-p3).length() << "\n" << (p5-p6).length() << "\n"  << (p6-p7).length() << endl;
+
+    // Write as Hexahedron
+    //hex.write(cout);
+    //cout << "alpha = " << (acos((w*v)/w.length()/v.length())/(2*M_PI)*360) << endl;
+    //cout << "delta = " << ((p5-p6).length()-10.0)/2.0 << endl;
+    //cout << "width = " << (p5-p8).length() << endl;
+    //cout << endl;
+	  
+	shared_ptr<SplineVolume> splvol(hex.geometryVolume());
+    vector<shared_ptr<SplineSurface> > bd_sfs_spl = splvol->getBoundarySurfaces();
+    for (size_t ki=0; ki<bd_sfs_spl.size(); ++ki)
+      {
+        bd_sfs_spl[ki]->writeStandardHeader(cout);
+        bd_sfs_spl[ki]->write(cout);
+		//Point normal;
+		//bd_sfs_spl[ki]->normal(normal,0.5,0.5);
+		//cout << normal << endl;
+      }
+  }
 
   // Check write as spline volumes
   //ofstream ofs("~/caxman_volumes.g2");
-  
   for (int ix=0; ix!=numpts; ix++) {
     // Read parameters from file
     ifs >> dummy >> alphadeg >> delta;
@@ -64,8 +112,7 @@ int main (int argc, char* argv[]) {
 
     // Write as Hexahedron
     hex.write(cout);
-    cout << endl;
-
+    
     // Check parametrization is correct
     //for (int jx3=0;jx3!=2;++jx3) {
     //  for (int jx2=0;jx2!=2;++jx2) {
@@ -85,10 +132,8 @@ int main (int argc, char* argv[]) {
     // Check that the input values alpha, delta are correctly reflected in the geometry
     cout << "alpha = " << (acos((w*v)/w.length()/v.length())/(2*M_PI)*360) << endl;
     cout << "delta = " << ((p5-p6).length()-10.0)/2.0 << endl;
-    cout << "width = " << (p5-p8).length() << endl;
+    cout << "width = " << (p5-p8).length() << "\n\n" << endl;
 
   }
-
-  
   
 }
