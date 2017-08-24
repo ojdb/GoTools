@@ -52,9 +52,13 @@ using namespace std;
 int main( int argc, char* argv[] )
 {
 
-  if (argc < 3 || argc > 4)
+  if (argc < 4 )
     {
-      cout << "Usage:  " << argv[0] << " result mesh" << endl;
+	  // scale: multiplication factor used for change of units, same in all directions.
+      // shift_x/y/z: translation applied after the application of the scale factor, used to realign to the origin.
+	  // bbmin/max_x/y/z: bounding box after scaling and translation. Only points inside the bounding box will be written out.
+      cout << "Usage:  " << argv[0] << " result mesh output [scale] (optional) [shift_x shift_y shift_z] (optional) "
+									<< "[bbmin_x bbmax_x bbmin_y bbmax_y bbmin_z bbmax_z] (optional)" << endl;
       return 1;
     }
 
@@ -84,6 +88,15 @@ int main( int argc, char* argv[] )
 
   in_res.close();
 
+  float scale = (argc > 4) ? atof(argv[4]): 1.0f;
+
+  float bbmin_x = (argc > 8) ? atof(argv[8]) : -FLT_MAX;
+  float bbmax_x = (argc > 9) ? atof(argv[9]) : FLT_MAX;
+  float bbmin_y = (argc > 10) ? atof(argv[10]) : -FLT_MAX;
+  float bbmax_y = (argc > 11) ? atof(argv[11]) : FLT_MAX;
+  float bbmin_z = (argc > 12) ? atof(argv[12]) : -FLT_MAX;
+  float bbmax_z = (argc > 13) ? atof(argv[13]) : FLT_MAX;
+
   ifstream in_mesh(argv[2]);
   vector<float> pts;
   // Ignore first two lines
@@ -97,9 +110,12 @@ int main( int argc, char* argv[] )
 	ss >> index;
 	if (index != boundary_indices[jndex]) continue;
 	ss >> a >> b >> c;
-	pts.push_back(1000.0*a);
-	pts.push_back(1000.0*b);
-	pts.push_back(1000.0*c);
+	a *= scale;
+	b *= scale;
+	c *= scale;
+	pts.push_back(a);
+	pts.push_back(b);
+	pts.push_back(c);
     jndex++;
   }
   in_mesh.close();
@@ -107,15 +123,38 @@ int main( int argc, char* argv[] )
   if (pts.size() == results.size()) std::cout << "files seem to correspond ok" << std::endl;
   else std::cout << "something seems to be wrong with the input files" << std::endl;
 
-  std::vector<float> distorted(pts.size());
+  std::cout << "Number of points is " << pts.size() << std::endl; 
 
-  for (int ix=0; ix!=pts.size(); ++ix) {
-    distorted[ix] = pts[ix]+results[ix];
-  }
+  std::vector<float> distorted;
 
-  std::ofstream ofs("distorted_points.txt");
+  vector<float> shift(3);
+  shift[0] = (argc > 5) ? atof(argv[5]) : 0.0f;
+  shift[1] = (argc > 6) ? atof(argv[6]) : 0.0f;
+  shift[2] = (argc > 7) ? atof(argv[7]) : 0.0f; 
+
   for (int ix=0; ix!=pts.size()/3; ++ix) {
-    ofs << distorted[3*ix] << " " << distorted[3*ix+1] << " " << distorted[3*ix+2] << "\n";
+    float a = pts[3*ix]+results[3*ix]+shift[0];
+	float b = pts[3*ix+1]+results[3*ix+1]+shift[1];
+	float c = pts[3*ix+2]+results[3*ix+2]+shift[2];
+	if (a >= bbmin_x && a <= bbmax_x && b >= bbmin_y && b <= bbmax_y && c >= bbmin_z && c <= bbmax_z) {
+	  distorted.push_back(a); 
+      distorted.push_back(b); 
+	  distorted.push_back(c); 
+	}
   }
 
+  ofstream ofs(argv[3]);
+  cout << argv[3] << endl;
+  //float barya=0.0f;
+  //float baryb=0.0f;
+  //float baryc=0.0f;
+  int numpts = distorted.size()/3;
+  for (int ix=0; ix!=numpts; ++ix) {
+    //barya += pts[3*ix]/numpts;
+	//baryb += pts[3*ix+1]/numpts;
+	//baryc += pts[3*ix+2]/numpts;
+    ofs << distorted[3*ix] << " " << distorted[3*ix+1] << " " << distorted[3*ix+2] << "\n";   
+  }
+  ofs << endl;
+  //cout << "barycenter " << barya << " " << baryb << " " << baryc << endl; 
 }
