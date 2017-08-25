@@ -43,17 +43,16 @@
 /**
 \page geometry_doc GoTools Core
 
-All GoTools modules depend on gotools-core. The module contains 
-parametric curves and surfaces and functionality related to these entities.
-For clarity it is divided into four parts: \em geometry, \em utils,
-\em creators and \em tesselator.  The \em geometry part contains
-classes and functionality for representing, storing and manipulating
-parameterized geometrical objects, whereas the
-\em utils part contains general, low-level functionality.
-\em Creators contains
-functionality for generating curves and surfaces by approximation,
-blending, etc., and and \em tesselator for making tesselations of the
-geometry entities.
+\tableofcontents
+
+
+
+All GoTools modules depend on the gotools-core module. This module contains parametric curves and surfaces and functionality related to these entities.
+For clarity it is divided into four parts:
+- \em geometry --- contains classes and functionality for representing, storing and manipulating parameterized geometrical objects
+- \em utils --- contains general, low-level functionality
+- \em creators --- contains functionality for generating curves and surfaces by approximation, blending, etc.
+- \em tesselator --- contains functionality for making tesselations of geometry entities
 
 \section geom_sec1 Geometric Data Structures
 \image html data_structure2.gif "Simplified overview of the geometry class hierarchy"
@@ -61,64 +60,115 @@ geometry entities.
 The figure above shows the main geometry classes in GoTools. 
 
 All geometric objects are of type \beginlink \link Go::GeomObject GeomObject\endlink. 
-This class has a function called
-instanceType, and by calling this function, it is possible to check the
+This class has a function \link Go::GeomObject::instanceType instanceType\endlink,
+and by calling this function, it is possible to check the
 concrete type of a given object. A GeomObject is 
-\beginlink \link Go::Streamable Streamable \endlink, which means
+\beginlink \link Go::Streamable Streamable\endlink, which means
 that they can be written to and read from a stream (typically a
 file) in a uniform way.  
 See \beginlink \link streamable_doc the g2-format documentation\endlink for more
 information on this topic. Similarly, they can be created in a
-uniform way by the \beginlink \link Go::Factory Factory \endlink, which is
-useful when you want to generate objects whose exact kind are
-unknown at compile time
+uniform way by the \beginlink \link Go::Factory Factory\endlink, which is
+useful when you want to generate objects whose exact kind is
+unknown at compile time.
 
+
+\subsection geom_sec1_1 Parametric Curves
 \beginlink \link Go::ParamCurve ParamCurve\endlink 
 is the base class for all parametric curves in GoTools and defines
 a common interface. Many operations do not need to distinguish between 
-different types of parametric curves. A parametric curve has functionality
-of type:
-- operations on the parameter interval; fetch start and end parameter, 
-change or reverse the parameter interval
-- evaluation
-- closest point
-- compute the bounding box
-- compute the directional cone surronding all tangent directions of
+different types of parametric curves. A parametric curve has (with some exceptions) the following
+functionality:
+- operations on the curve
+  + \link Go::ParamCurve::clone clone\endlink: make a copy of this curve
+  + \link Go::ParamCurve::subCurve subCurve\endlink: create a subcurve of this curve
+  + \link Go::ParamCurve::appendCurve appendCurve\endlink: append another curve to this curve
+  + \link Go::ParamCurve::split split\endlink: split the curve into two curves at a given parameter
+- operations in the parameter interval
+  + \link Go::ParamCurve::startparam startparam\endlink: fetch start parameter
+  + \link Go::ParamCurve::endparam endparam\endlink: fetch end parameter
+  + \link Go::ParamCurve::setParameterInterval setParameterInterval\endlink: linearly reparametrize the parameter interval
+  + \link Go::ParamCurve::reverseParameterDirection reverseParameterDirection\endlink: reverse the parameter interval
+- evaluations
+  + \link Go::ParamCurve::point point\endlink: evaluate the curve's position (and perhaps a certain number of derivatives) at a given parameter
+  + \link Go::ParamCurve::uniformEvaluator uniformEvaluator\endlink: evaluate the curve's position at a regular set of parameter values
+- geometric information retrieval
+  + \link Go::ParamCurve::length length\endlink: compute the length of (a segment of) the curve
+  + \link Go::ParamCurve::estimatedCurveLength estimatedCurveLength\endlink: estimate the length of (a segment of) the curve
+  + \link Go::ParamCurve::compositeBox compositeBox\endlink: compute a composite box (bounding box) enclosing the curve
+  + \link Go::ParamCurve::directionCone directionCone\endlink: compute a directional cone containing all tangent directions of
 this curve
-- length measures of the curve
-- fetch a sub curve of this curve
-- closest point computatations
-- append another curve to the current curve
-- check for degeneracy
-- make a copy of itself 
+- closest point computations
+  + \link Go::ParamCurve::closestPointGeneric closestPointGeneric\endlink: compute the closest point on (a segment of) this curve to a specified point --- generic implementation
+  + \link Go::ParamCurve::closestPoint closestPoint\endlink: compute the closest point on (a segment of) this curve to a specified point --- specific implementation for each parametric curve type
+- checks for degeneracy, symmetry, and type
+  + \link Go::ParamCurve::isLinear isLinear\endlink: check if the curve is linear
+  + \link Go::ParamCurve::isInPlane isInPlane\endlink: check if the curve is contained in a plane belonging to a given pencil of planes
+  + \link Go::ParamCurve::isAxisRotational isAxisRotational\endlink: check if the curve is axis rotational
+  + \link Go::ParamCurve::isDegenerate isDegenerate\endlink: check whether the curve degenerates to a single point
+  + \link Go::ParamCurve::isClosed isClosed\endlink: check whether the curve is closed
 
+\subsection geom_sec1_2 Parametric Surfaces
 \beginlink \link Go::ParamSurface ParamSurface\endlink 
 is the base class for a parametric surface and defines the
-common interface for all parametric surfaces. The functionality is roughly
-- parameter domain operations; fetch the domain and the rectangular 
-surrounding domain, check if a parameter pair lies in the domain of a
-surface, turn the directions of the parameter domain
-- evaluation
-- fetch constant parameter curves
-- get the boundary curves surrounding this surface
-- compute bounding box
-- compute the directional cone surrounding all surface normal directions
-of the current surface
-- area computations
-- fetch a sub surface of this surface
-- check for degeneracy
-- make a copy of itself
+common interface for all parametric surfaces. A parametric surface has (with some exceptions) the following functionality:
+- operations on the surface
+  + \link Go::ParamSurface::clone clone\endlink: make a copy of this surface
+  + \link Go::ParamSurface::subSurfaces subSurfaces\endlink: create subsurfaces of this surface
+  + \link Go::ParamSurface::asSplineSurface asSplineSurface\endlink: create a spline surface represented by this surface, if any
+  + \link Go::ParamSurface::outerBoundaryLoop outerBoundaryLoop\endlink: fetch the anticlockwise, outer boundary loop of the surface
+  + \link Go::ParamSurface::allBoundaryLoops allBoundaryLoops\endlink: fetch the anticlockwise outer boundary loop of the surface, together with clockwise loops of any interior boundaries
+  + \link Go::ParamSurface::getBoundaryInfo getBoundaryInfo\endlink: compute the boundary curve segment between two points on the boundary, as well as the cross-tangent curve
+  + \link Go::ParamSurface::mirrorSurface mirrorSurface\endlink: reflect the surface through a given plane
+  + \link Go::ParamSurface::getInternalPoint getInternalPoint\endlink: fetch an (unspecified) internal point in the surface
+  + \link Go::ParamSurface::constParamCurves constParamCurves\endlink: fetch the curve(s) obtained by intersecting the surface with one of its isoparametric curves
+  + \link Go::ParamSurface::nextSegmentVal nextSegmentVal\endlink: determine the parameter value of the start of the 'next segment' from a parameter value, along a given parameter direction
+  + \link Go::ParamSurface::turnOrientation turnOrientation\endlink: flip the direction of the normal of the surface
+  + \link Go::ParamSurface::getCornerPoints getCornerPoints\endlink: fetch surface corners, geometric and parametric points
+- operations in the parameter domain
+  + \link Go::ParamSurface::setParameterDomain setParameterDomain\endlink: set the parameter domain to a given rectangle
+  + \link Go::ParamSurface::parameterDomain parameterDomain\endlink: fetch the parameter domain
+  + \link Go::ParamSurface::containingDomain containingDomain\endlink: fetch a rectangular domain that contains the parameter domain
+  + \link Go::ParamSurface::inDomain inDomain\endlink: check if a parameter pair lies in the parameter domain
+  + \link Go::ParamSurface::inDomain2 inDomain2\endlink: check if a parameter pair lies inside, on the boundary, or outside of the parameter domain
+  + \link Go::ParamSurface::onBoundary onBoundary\endlink: check if a parameter pair lies on the boundary of the parameter domain
+  + \link Go::ParamSurface::closestInDomain closestInDomain\endlink: fetch the parameter value in the parameter domain closest to a given parameter pair
+  + \link Go::ParamSurface::reverseParameterDirection reverseParameterDirection\endlink: reverse one of the parameter directions
+  + \link Go::ParamSurface::swapParameterDirection swapParameterDirection\endlink: swap the two parameter directions
+- geometric information retrieval
+  + \link Go::ParamSurface::normalCone normalCone\endlink: create a direction cone containing all surface normals
+  + \link Go::ParamSurface::tangentCone tangentCone\endlink: create a direction cone containing all surface tangents in a given parameter direction
+  + \link Go::ParamSurface::compositeBox compositeBox\endlink: compute a composite box (bounding box) enclosing the surface
+  + \link Go::ParamSurface::area area\endlink: compute the total area of this surface
+  + \link Go::ParamSurface::estimateSfSize estimateSfSize\endlink: estimate the size of the surface in the two parameter directions
+- evaluations
+  + \link Go::ParamSurface::point point\endlink: evaluate the surface's position (and perhaps a certain number of derivatives) at a given parameter pair
+  + \link Go::ParamSurface::normal normal\endlink: evaluate the surface normal for a given parameter pair
+  + \link Go::ParamSurface::evalGrid evalGrid\endlink: evaluate the surface's position at a grid in the parameter domain
+- closest point computations
+  + \link Go::ParamSurface::closestPoint closestPoint\endlink: iteratively find the closest point on the surface to a given point
+  + \link Go::ParamSurface::closestBoundaryPoint closestBoundaryPoint\endlink: iteratively find the closest point on the boundary of the surface to a given point
+  + \link Go::ParamSurface::setIterator setIterator\endlink: set type of closest point iterator
+- checks for degeneracy, symmetry, and type
+  + \link Go::ParamSurface::isDegenerate isDegenerate\endlink: check whether one of the four boundary curves is degenerate (i.e., has zero length)
+  + \link Go::ParamSurface::getDegenerateCorners getDegenerateCorners\endlink: find degenerate surface corners by checking for parallel and anti-parallel partial derivatives
+  + \link Go::ParamSurface::isIsoTrimmed isIsoTrimmed\endlink: check if the surface is trimmed along constant parameter curves
+  + \link Go::ParamSurface::isSpline isSpline\endlink: check if the surface is of type spline
+  + \link Go::ParamSurface::isAxisRotational isAxisRotational\endlink: check if the surface is axis rotational
+  + \link Go::ParamSurface::isPlanar isPlanar\endlink: check if the surface is planar
+  + \link Go::ParamSurface::isLinear isLinear\endlink: check if the surface is linear in one or both directions
+  + \link Go::ParamSurface::ElementOnBoundary ElementOnBoundary\endlink: check if a polynomial element (for spline surfaces) intersects the (trimming) boundaries
+  + \link Go::ParamSurface::ElementBoundaryStatus ElementBoundaryStatus \endlink: check if a polynomial element (for spline surfaces) intersects the (trimming) boundaries, is inside or outside
 
 \section geom_sec2 B-spline Curves
 
-A B-spline curve is represented by 
-\beginlink \link Go::SplineCurve SplineCurve\endlink.
+A B-spline curve is represented by the \beginlink \link Go::SplineCurve SplineCurve\endlink class.
 
-The curve is defined by the formula
+Mathematically, the curve is defined by the parametrization
 
 \f[ {\bf c}(t) = \sum_{i=1}^{n} {\bf p}_{i} B_{i,k,{\bf t}}(t). \f]
 
-The dimension of the curve \f${\bf c}\f$ is equal to that of its
+The dimension \f$dim\f$ of the curve \f${\bf c}\f$ is equal to that of its
 \em control \em points \f${\bf p}_i\f$. For example, if the dimension of the
 control points
 is one, the curve is a function, if the dimension is two,
@@ -131,7 +181,7 @@ A B-spline curve is a linear combination of a sequence of
 \beginlink \link Go::BsplineBasis B-splines\endlink
 \f$B_{i,k,{\bf t}}\f$ (called a B-basis)
 uniquely determined by a knot vector \f${\bf t}\f$ and
-the order \f$k\f$. Order is equivalent to polynomial degree plus one.
+the order \f$k\f$. The order is equal to the polynomial degree plus one.
 For example, if the order is two, the degree is one and the B-splines
 and the curve \f$c\f$ they generate are (piecewise) linear.
 If the order is three, the degree is two and the B-splines and
@@ -154,7 +204,7 @@ The complete representation of a B-spline curve consists of
 \arg \c \f${\bf p}\f$: The control points of the B-spline curve.
            \f$p_{d,i}\;,\; d=1,\ldots,dim\;,\;
                 i=1,\ldots,n.\;\;\f$
-                e.g. when \f$dim = 3\f$, we have
+                E.g. when \f$dim = 3\f$, we have
                 \f${\bf p} = (x_1,y_1,z_1,x_2,y_2,z_2,\ldots,x_n,y_n,z_n)\f$.
 
 We note that arrays in \f$c\f$ start at index 0 which means,
@@ -165,7 +215,7 @@ and the parameter interval goes from
 
 The data in the curve representation must satisfy certain conditions:
 - The knot vector must be non-decreasing: \f$t_i \le t_{i+1}\f$.
-      Moreover, two knots \f$t_i\f$ and \f$t_{i+k}\f$ must be distinct:
+      Moreover, the knots \f$t_i\f$ and \f$t_{i+k}\f$ must be distinct:
       \f$t_i < t_{i+k}\f$.
 - The number of control points should be greater than or equal
       to the order of the curve: \f$n \ge k\f$.
@@ -180,51 +230,58 @@ the knot vector and the control polygon.
 The spline space is represented by the class 
 \beginlink \link Go::BsplineBasis BsplineBasis\endlink.
 A set of B-spline basis functions is determined by the order \f$k\f$
-and the knots. For example,
-to define a single  basis function of degree one, we need three knots.
+and the knots.
+
+
+\subsubsection geom_sec2_1_1 Linear B-splines
+
+For example, to define a single basis function of degree one, we need three knots.
 
 \image html linear_B_spline.gif "A linear B-spline (order 2) defined by three knots"
 In the figure the three knots are marked as dots.
 
-\image html linear2_B_spline.gif "Linear B-splines of with multiple knots at one end"
-In the figure above the knots at the ends are equal.
+\image html linear2_B_spline.gif "Linear B-splines with multiple knots at one end"
+In the figure above the two knots at each end are equal.
 
 By taking a linear combination of the three basis functions shown above,
 we can generate a linear spline function
 as shown in the next figure.
 
-\image html linear_B_spline_curve.gif "A B-spline curve of dimension 1 as a linear combination of a sequence of B-splines.  Each B-spline (dashed) is scaled by a coefficient."
-In this figure a linear spline function is generated by taking a linear 
-combination of the three basis functions shown in the previous figures.
+\image html linear_B_spline_curve.gif "A linear B-spline curve of dimension 1 (solid) as a linear combination of a sequence of B-splines. Each B-spline (dashed) is scaled by a coefficient."
+
+\subsubsection geom_sec2_1_2 Quadratic B-splines
 
 A quadratic B-spline basis function is a linear combination of two linear
-basis functions. In the next figure, we will see
+basis functions, in which the coefficients are linear affine in the parameter \f$t\f$.
+In the next figure, we will see
 a quadratic B-spline defined by four knots.
 A quadratic B-spline is
 the sum of two products, the first product between the linear B-spline
 on the left and a corresponding line from 0 to 1,
 the second product between the linear B-spline
-on the right and a corresponding line from 1 to 0;
-For higher degree B-splines there is a similar definition.
-A B-spline of order \f$k\f$ is the sum of two B-splines of
-order \f$k-1\f$, each weighted with weights in the interval [0,1].
-In fact we define B-splines of order 1 explicitly as box functions,
+on the right and a corresponding line from 1 to 0.
+
+\image html quadratic_B_spline_curve.gif "A quadratic B-spline (solid) as a weighted (dashed) linear combination of linear B-splines (solid)"
+
+\subsubsection geom_sec2_1_3 Higher-order B-splines
+
+For higher-order B-splines there is a similar definition.
+A B-spline of order \f$k\geq 2\f$ is a weighted linear combination
+of two B-splines of order \f$k-1\f$.
+Explicitly, we define B-splines of order \f$k=1\f$ as box functions,
 
 \f[
   B_{i,1}(t) =  
   1  \quad if \quad t_i \leq t < t_{i+1} \quad and \quad 0 \quad otherwise
 \f]
 
-and then the complete definition of a \f$k\f$-th order B-spline is
+and then the B-splines of order \f$k\geq 2\f$ as
 
 \f[ B_{i,k}(t) = {t - t_i \over t_{i+k-1} - t_i} B_{i,k-1}(t)
              +
              {t_{i+k} - t \over t_{i+k} - t_{i+1}} B_{i-1,k-1}(t). \f]
 
-\image html quadratic_B_spline_curve.gif "A quadratic B-spline curve"
-The figure above shows two linear B-splines and the corresponding lines 
-(dashed) in the quadratic B-spline definition in addition to the quadratic
-curve itself.
+\subsubsection geom_sec2_1_4 Basic properties
 
 B-spline basis functions satisfy some important properties for curve 
 and surface design.
@@ -247,9 +304,9 @@ the start point of the B-spline curve
 equals the first control point and the end point equals the
 last control point, in other words
 
-\f$ {\bf c}(t_k) = {\bf p}_1
+\f[ {\bf c}(t_k) = {\bf p}_1
      \qquad \hbox{and} \qquad
-   {\bf c}(t_{n+1}) = {\bf p}_n. \f$
+   {\bf c}(t_{n+1}) = {\bf p}_n. \f]
 
 \subsection geom_sec2_2 The Control Polygon
 
@@ -258,24 +315,20 @@ arc formed by its control points,
 \f${\bf p}_0, {\bf p}_1, \ldots,{\bf p}_n\f$.
 This means that
 the control polygon, regarded as a parametric curve,
-is itself a piecewise linear B-spline curve (order two).
+is itself a piecewise linear B-spline curve (order two), identical to its own control polygon.
 If we increase the order, the distance between the control polygon
 and the curve increases.
 A higher order B-spline curve tends to smooth
 the control polygon and at the same time mimic its shape.
 For example, if the control polygon is convex, so is the B-spline curve.
+\image html B_spline_curves.gif "Linear, quadratic, and cubic planar B-spline curves sharing the same control polygon"
 
 Another property of the control polygon is that it will get closer
 to the curve if it is redefined by inserting knots into the curve
 and thereby increasing the number of control points. This can be seen in the next
-figure.
-If the refinement is infinite then the control polygon converges to the curve.
-\image html B_spline_curves.gif "Linear, quadratic, and cubic B-spline curves sharing the same control polygon"
+figure. In the limit, the refinement of the control polygon converges to its B-spline curve.
 
-The control polygon in the figure above is equal to the linear B-spline curve. 
-The curves are planar, i.e. the space dimension is two.
-
-\image html cubic_B_spline_curve.gif "The cubic B-spline curve with a redefined knot vector"
+\image html cubic_B_spline_curve.gif "The cubic B-spline curve shown above with a redefined knot vector"
 
 \subsection geom_sec2_3 The Knot Vector
 
@@ -283,9 +336,10 @@ The knots of a B-spline curve describe the following properties of the curve:
 - The parameterization of the B-spline curve
 - The continuity at the joins between the adjacent polynomial
    segments of the B-spline curve.
-In figure~\ref{curve7} we have two curves
-with the same control polygon and order but
-with different parameterization.
+
+Although the curves in the figure below have the same control polygon, they have different knot vectors and therefore different parametrizations.
+
+\image html two_curves.gif "Two quadratic planar B-spline curves with identical control polygons but different knot vectors"
 
 This example is not meant as an encouragement to use
 parameterization for modelling, rather to make users
@@ -305,10 +359,6 @@ can be modelled using \f$k-2\f$ equal knots etc.
 Normally, B-spline curves in GoTools are expected to be continuous.
 For many algorithms, curves should
 be continuously differentiable (\f$C^1\f$).
-
-\image html two_curves.gif "Two quadratic B-spline curves" 
-The curves in the figure above have the same control polygon but different knot 
-vectors. The curves and the control polygons are two-dimensional
 
 \image html quadratic_B_spline_curve2.gif "A quadratic B-spline curve with two inner knots"
 
@@ -331,7 +381,7 @@ making some calculations, like the evaluation of derivatives,
 more complicated and less efficient than with B-spline curves.
 
 The representation of a NURBS curve is the same as for a B-spline
-except that it also includes
+curve except that it also includes
 \arg \c \f${\bf w}\f$: A sequence of weights
             \f${\bf w} = (w_1, w_2, \ldots, w_n)\f$.
 
@@ -346,7 +396,7 @@ A NURBS curve is in GoTools stored using the same entities as
 non-rational spline curves. Note that the constructors of these entities assume that
 the NURBS coefficients are given in the format: \f$w_i p_{i,1}, \ldots
 w_i p_{i,dim},w_i\f$ for \f$i=1, \ldots n\f$, 
-i.e. the coefficients are multiplied with the weigths.
+i.e., the coefficients are multiplied with the weigths.
 
 \subsection geom_sec2_5 Spline Curve Functionality
 In GoTools, \beginlink \link Go::SplineCurve SplineCurve \endlink 
@@ -360,7 +410,7 @@ curve can be found in the doxygen information. This functionality includes:
 - Insert new knots into the knot vector of the curve and update the
 curve accordingly
 - Increase the polynomial degree of the curve
-- Make sure that the curve has got an open knot vector, i.e. knot
+- Make sure that the curve has got an open knot vector, i.e., knot
 multiplicity equal to the order in the ends of the curve
 
 \section geom_sec3 B-spline Surfaces
@@ -368,7 +418,7 @@ multiplicity equal to the order in the ends of the curve
 A tensor product B-spline surface is represented by the class 
 \beginlink \link Go::SplineSurface SplineSurface\endlink.
 
-the B-spline surface is defined as
+Mathematically, the B-spline surface is defined by the parametrization
 
 \f[ {\bf s}(u,v) = \sum_{i=1}^{n_1}\sum_{j=1}^{n_2}{\bf p}_{i,j} 
 	B_{i,k_1,{\bf u}}(u) B_{j,k_2,{\bf v}}(v)  \f]
@@ -409,8 +459,7 @@ similar to the properties of the representation of a B-spline curve.
 The control points \f${\bf p}_{i,j}\f$ form a \em control \em net as shown in
 the figure below.
 The control net has similar properties to the control
-polygon of a B-spline curve, described in section~\ref{contrlpoly}.
-A B-spline surface has two knot vectors, one
+polygon of a B-spline curve, described above.
 
 \image html surf1.gif "A B-spline surface and its control net" width=10cm
 

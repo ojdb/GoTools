@@ -46,8 +46,8 @@
 #include "GoTools/geometry/ParamSurface.h"
 #include <QPainter>
 #include <QImage>
-//Added by qt3to4:
 #include <QtGui/QMouseEvent>
+#include <QScreen>
 
 //#include "GoTools/viewlib/PBuffer.h"
 
@@ -56,7 +56,7 @@ using namespace std;
 //===========================================================================
 gvView::gvView(gvData& data,
 	       QWidget* parent, const char* name,
-	       const QGLWidget * shareWidget, Qt::WFlags f)
+	       const QGLWidget * shareWidget, Qt::WindowFlags f)
 //===========================================================================
 //     : QGLWidget(QGLFormat(AlphaChannel), parent, name, shareWidget, f),
     : QGLWidget(QGLFormat(QGL::AlphaChannel), parent, shareWidget, f),
@@ -95,7 +95,7 @@ gvView::gvView(gvData& data,
 //===========================================================================
 gvView::gvView(const QGLFormat &format, gvData& data,
 	       QWidget* parent, const char* name,
-	       const QGLWidget * shareWidget, Qt::WFlags f)
+	       const QGLWidget * shareWidget, Qt::WindowFlags f)
 //===========================================================================
 //     : QGLWidget(format, parent, name, shareWidget, f),
     : QGLWidget(format, parent, shareWidget, f),
@@ -237,7 +237,14 @@ void gvView::paintGL()
 void gvView::saveSnapshot(int w, int h, const QString &filename)
 //===========================================================================
 {
-#if 0 // Did now compile on all platforms.
+#if 1
+    {
+        QImage qimage = QGLWidget::grabFrameBuffer();//(0);
+        QFile file(filename);
+        file.open(QIODevice::WriteOnly);
+        qimage.save(&file, "PNG");
+    }
+#else
   // temporarly removed.
    bool withAlpha=true;
    gvCamera oldcam=camera_;
@@ -1186,6 +1193,7 @@ void gvView::observedChanged()
     }
     if (gl_initialized_)
 	updateGL();
+
 }
 
 //===========================================================================

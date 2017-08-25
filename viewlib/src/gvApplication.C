@@ -75,7 +75,7 @@
 #include <QSettings>
 #include <assert.h>
 #include <time.h>
-
+#include <QScreen>
 
 using std::vector;
 using std::auto_ptr;
@@ -107,11 +107,27 @@ int colors[MAX_COLORS][3] = {
 };
 
 
+string getFileName(const string& s) {
+
+   char sep = '/';
+
+#ifdef _WIN32
+   sep = '\\';
+#endif
+
+   size_t i = s.rfind(sep, s.length());
+   if (i != string::npos) {
+      return(s.substr(i+1, s.length() - i));
+   }
+
+   return("");
+}
+
 //===========================================================================
 gvApplication::gvApplication(auto_ptr<DataHandler> dh,
 			     QWidget* parent,
 			     const char* name,
-			     Qt::WFlags f)
+			     Qt::WindowFlags f)
 //===========================================================================
 //   : QWidget(parent, name, f), data_(dh), curr_file_type_(".g2")
   : QWidget(parent, f), data_(dh), curr_file_type_("GO files (*.g2)"),
@@ -288,11 +304,6 @@ void gvApplication::save_selection_as()
 {
   try {
     // Get filename by dialog
-//     QString s(Q3FileDialog::getSaveFileName(0, "Go files (*.g2)\n"
-// 					   "IGES files (*.igs)\n",
-// // 					   "SISL files (*.srf)\n"
-// // 					   "all files (*)", 
-// 					   this));
     QString s(QFileDialog::getSaveFileName(this, "Go files (*.g2)\n"
 					   "IGES files (*.igs)\n"
 // 					   "SISL files (*.srf)\n"
@@ -318,6 +329,31 @@ void gvApplication::save_selection_as()
   }
 }
 
+//===========================================================================
+void gvApplication::print_screenshot()
+//===========================================================================
+{
+    string basename = getFileName(last_file_name_.toStdString());
+    size_t lastindex = basename.find_last_of("."); 
+    string rawname = basename.substr(0, lastindex); 
+    string savename = "tmp/" + rawname + ".png";
+    QImage qimage = view_->QGLWidget::grabFrameBuffer();//(0);
+    QFile file(QString::fromStdString(savename));
+    file.open(QIODevice::WriteOnly);
+    qimage.save(&file, "PNG");
+
+#if 0
+    // Testing rotation and creation of video.
+    const double fps = 15.0;
+    const double sec = 1.0;
+    int num_screenshots = 1 + ceiling(fps*sec);
+    const double rot_rad = 2.0*M_PI/(double)num_screenshots;
+    for (int ki = 0; ki < num_screenshots; ++ki)
+    {
+        
+    }
+#endif
+}
 
 //===========================================================================
 void gvApplication::close_document()
@@ -570,9 +606,6 @@ void gvApplication::assign_texture()
     // Open a dialog box to get a texture file
      try {
 	// Get filename by dialog
-// 	QString s(Q3FileDialog::getOpenFileName(0, "SGI rgb files (*.rgb)\n"
-// 					       "all files (*)", 
-// 					       this));
 	QString s(QFileDialog::getOpenFileName(this,"SGI rgb files (*.rgb)\n"
 					       "all files (*)"
 					       ));
@@ -659,7 +692,8 @@ void gvApplication::set_surface_resolutions()
 	    }
 
 	    if (ures < 0 && vres < 0) {
-		MESSAGE("Changing surface resolutions: Unknown surface type.");
+		MESSAGE("Changing surface resolutions: Unknown surface type (or something else). Type: "
+                        << data_.object(ki)->instanceType());
 		// QMessageBox::warning( this, "Changing surface resolutions: ",
 		// 		      "Unknown surface type.",
 		// 		      QMessageBox::Ok, Qt::NoButton);
@@ -1003,6 +1037,9 @@ void gvApplication::buildGUI()
 	file_menu->addAction( "Save selection as...", this,
 			       SLOT(save_selection_as()),
 			       Qt::CTRL+Qt::SHIFT+Qt::Key_S );
+	file_menu->addAction( "Print screenshot (to tmp/<filename>.png)", this,
+			       SLOT(print_screenshot()),
+			       Qt::CTRL+Qt::SHIFT+Qt::Key_P );
 	file_menu->addAction( "Close", this,
 			       SLOT(close_document()),
 			       Qt::CTRL+Qt::Key_W );
