@@ -112,6 +112,8 @@ enum ClassType
     Class_CylinderVolume = 722,
     Class_ConeVolume = 723,
     Class_TorusVolume = 724,
+    Class_Hexahedron = 725,
+
     Class_LRSplineVolume = 793
 };
 
