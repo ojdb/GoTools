@@ -69,9 +69,9 @@ int main( int argc, char* argv[] )
 {
   GoTools::init();
 
-  if (argc < 3 || argc > 5)
+  if (argc < 4 || argc > 5)
     {
-      cout << "Usage:  " << argv[0] << " surfaceFile pointFile outDistanceFile(optional)" << endl;
+      cout << "Usage:  " << argv[0] << " surfacefile.g2 pointfile.txt outfile.txt [outdistances.txt] (optional)" << endl;
       return 1;
     }
 
@@ -129,17 +129,18 @@ int main( int argc, char* argv[] )
   auto max_it = max_element(std::begin(closest_pts), std::end(closest_pts));
   auto min_it = min_element(std::begin(closest_pts), std::end(closest_pts));
   
-  std::cout << *min_it << "\n";
-  std::cout << *max_it << "\n\n";  
+  ofstream ofs(argv[3]);
+  ofs << *min_it << "\n";
+  ofs << *max_it << "\n\n";  
  
-  std::cout << pts[3*(min_it-closest_pts.begin())] << " " << pts[3*(min_it-closest_pts.begin())+1] << " " << pts[3*(min_it-closest_pts.begin())+2] << "\n";
-  std::cout << pts[3*(max_it-closest_pts.begin())] << " " << pts[3*(max_it-closest_pts.begin())+1] << " " << pts[3*(max_it-closest_pts.begin())+2] << "\n" << endl;
+  ofs << pts[3*(min_it-closest_pts.begin())] << " " << pts[3*(min_it-closest_pts.begin())+1] << " " << pts[3*(min_it-closest_pts.begin())+2] << "\n";
+  ofs << pts[3*(max_it-closest_pts.begin())] << " " << pts[3*(max_it-closest_pts.begin())+1] << " " << pts[3*(max_it-closest_pts.begin())+2] << "\n" << endl;
 
-  if (argc > 3) {
-	ofstream ofs(argv[3]);
+  if (argc > 4) {
+	ofstream ofsdist(argv[4]);
     for (int i = 0; i < closest_pts.size(); i += 1)
-      ofs << closest_pts[i] << "\n";
+      ofsdist << closest_pts[i] << "\n";
   }
-  //std::cout << "results have been written to distance.txt" << std::endl; 
+   
 
 }

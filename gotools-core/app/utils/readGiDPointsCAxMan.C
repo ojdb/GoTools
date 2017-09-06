@@ -44,7 +44,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-
+#include <float.h>
 
 using namespace std;
 
@@ -54,11 +54,11 @@ int main( int argc, char* argv[] )
 
   if (argc < 4 )
     {
-	  // scale: multiplication factor used for change of units, same in all directions.
+      // scale: multiplication factor used for change of units, same in all directions.
       // shift_x/y/z: translation applied after the application of the scale factor, used to realign to the origin.
-	  // bbmin/max_x/y/z: bounding box after scaling and translation. Only points inside the bounding box will be written out.
-      cout << "Usage:  " << argv[0] << " result mesh output [scale] (optional) [shift_x shift_y shift_z] (optional) "
-									<< "[bbmin_x bbmax_x bbmin_y bbmax_y bbmin_z bbmax_z] (optional)" << endl;
+      // bbmin/max_x/y/z: bounding box after scaling and translation. Only points inside the bounding box will be written out.
+      cout << "Usage:  " << argv[0] << " gid_result.res gid_mesh.msh output.txt [scale] (optional) [shift_x shift_y shift_z] (optional) "
+			            << "[bbmin_x bbmax_x bbmin_y bbmax_y bbmin_z bbmax_z] (optional)" << endl;
       return 1;
     }
 
@@ -120,11 +120,12 @@ int main( int argc, char* argv[] )
   }
   in_mesh.close();
 
+  cout << argv[3] << endl;
   if (pts.size() == results.size()) std::cout << "files seem to correspond ok" << std::endl;
   else std::cout << "something seems to be wrong with the input files" << std::endl;
 
-  std::cout << "Number of points is " << pts.size() << std::endl; 
-
+  std::cout << "Number of points/results is " << pts.size() << " / " << results.size() << "\n\n" << std::endl; 
+  
   std::vector<float> distorted;
 
   vector<float> shift(3);
@@ -144,7 +145,6 @@ int main( int argc, char* argv[] )
   }
 
   ofstream ofs(argv[3]);
-  cout << argv[3] << endl;
   //float barya=0.0f;
   //float baryb=0.0f;
   //float baryc=0.0f;
