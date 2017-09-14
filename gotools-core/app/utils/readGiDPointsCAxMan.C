@@ -76,8 +76,8 @@ int main( int argc, char* argv[] )
   int index;
   float a,b,c;
   while (std::getline(in_res, line))
-  {
-    if (line == "End Values") { break; } // eof
+  { 
+    if (line.substr(0,10) == string("End Values")) { break;} // eof
 	std::istringstream ss(line);
 	ss >> index >> a >> b >> c;
 	boundary_indices.push_back(index);
@@ -105,7 +105,7 @@ int main( int argc, char* argv[] )
   int jndex = 0;
   while (std::getline(in_mesh, line))
   {
-    if (line == "End Coordinates") { break; } // we don't need any more
+    if (line.substr(0,15) == "End Coordinates") { break; } // we don't need any more
     std::istringstream ss(line);
 	ss >> index;
 	if (index != boundary_indices[jndex]) continue;
